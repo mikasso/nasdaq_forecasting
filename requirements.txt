@@ -1,0 +1,11 @@
+yahoofinancials>=1.6
+yfinance>=0.1.87
+pandas>=1.5.2
+numpy>=1.23.5
+matplotlib>=3.6.2
+sklearn
+seaborn
+keras
+tensorflow
+joblib
+scikit-learn
