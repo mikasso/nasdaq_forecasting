@@ -9,3 +9,5 @@ keras
 tensorflow
 joblib
 scikit-learn
+fastparquet
+darts

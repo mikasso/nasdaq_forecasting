@@ -16,6 +16,9 @@ from darts.utils.likelihood_models import QuantileRegression
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateFinder
 from torchmetrics import MeanAbsolutePercentageError, MeanSquaredError
 from utils import read_csv_ts
+import const as CONST
+from const import FEATURES
+import darts
 
 
 def build_tft_model(window, horizon):
@@ -28,10 +31,10 @@ def build_tft_model(window, horizon):
     return TFTModel(
         input_chunk_length=window,
         output_chunk_length=horizon,
-        hidden_size=4,
-        lstm_layers=2,
-        batch_size=64,
-        n_epochs=10,  # TODO change it
+        hidden_size=30,
+        lstm_layers=16,
+        batch_size=128,
+        n_epochs=100,  # TODO change it
         dropout=0.2,
         save_checkpoints=True,
         show_warnings=True,
@@ -54,9 +57,6 @@ def build_tft_model(window, horizon):
     )
 
 
-from const import DATA_PATH, BASE_MERGED_PATH, PREDICT_ORDER
-import darts
-
 FREQ = "H"
 SPLIT_TRAIN = 0.8
 SPLIT_VAL = 0.1
@@ -74,10 +74,8 @@ def eval_model(result, test, future):
 
 if __name__ == "__main__":
     assert torch.cuda.is_available()
-    df = read_csv_ts(f"data/experimental/QQQM.csv", index_col="timestamp")  # use int?
-    df = df.resample(rule=FREQ).mean().fillna(method="backfill")  # TODO should be weighted mean abg
-    series = TimeSeries.from_dataframe(df, fill_missing_dates=True, freq=FREQ)
-    series = darts.utils.missing_values.fill_missing_values(series, fill="auto")
+    df = read_csv_ts(f"{CONST.PATHS.MERGED}/AEM.csv")
+    series = TimeSeries.from_dataframe(df)
     series = series.astype(np.float32)
 
     # Create training and validation sets:
