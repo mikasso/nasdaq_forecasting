@@ -1,3 +1,4 @@
+import logging
 from torchmetrics import MeanSquaredError, MeanAbsolutePercentageError
 import const as CONST
 
@@ -11,34 +12,38 @@ from darts.models import RNNModel
 from darts.metrics import mape
 from pytorch_lightning.callbacks import EarlyStopping, BatchSizeFinder, LearningRateFinder
 from pytorch_lightning.loggers import TensorBoardLogger
+from eval import eval_model
 
 from utils import SeqDataset
 
-MODEL_NAME = "GRU1"
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger(name="lstm")
+MODEL_NAME = "LSTM_DIFF"
+
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("medium")
-
-    dataset = SeqDataset(sanity_check=True)
+    LOGGER.info("Initializing dataset")
+    dataset = SeqDataset(sanity_check=False, diff=False)
 
     my_stopper = EarlyStopping(
         monitor="val_loss",
         patience=20,
-        min_delta=0.01,
+        min_delta=0.0000001,
         mode="min",
     )
     my_model = RNNModel(
-        model="GRU",
-        hidden_dim=150,
-        n_rnn_layers=2,
+        model="LSTM",
+        hidden_dim=1020,
+        n_rnn_layers=4,
         dropout=0.2,
-        batch_size=256,
-        n_epochs=400,
+        batch_size=64,
+        n_epochs=10000,
         optimizer_kwargs={"lr": 1e-3},
         model_name=MODEL_NAME,
         log_tensorboard=True,
         random_state=42,
-        input_chunk_length=15 * 30,
-        output_chunk_length=15 * 1,
+        input_chunk_length=68 * 15,
+        output_chunk_length=5,
         force_reset=True,
         save_checkpoints=True,
         pl_trainer_kwargs={
@@ -53,37 +58,17 @@ if __name__ == "__main__":
             "position": {"future": ["relative"]},
             "transformer": Scaler(),
         },
+        show_warnings=True,
     )
 
+    LOGGER.info("Starting training")
     my_model.fit(
         dataset.train_transformed,
         val_series=dataset.val_transformed,
         verbose=True,
-        num_loader_workers=4,
     )
-
-    def eval_model(model, dataset):
-        scores = {}
-        for idx, ticker in enumerate(CONST.TICKERS):
-            expected_output_series = dataset.test_seq[idx]["price"]
-            original_series = dataset.series_seq[idx]["price"]
-
-            input_series_transformed = dataset.test_input_transformed[idx]
-            output_series_tranformed = model.predict(n=len(expected_output_series), series=input_series_transformed)
-            output_series = dataset.transformer.inverse_transform(output_series_tranformed)["price"]
-            scores[ticker] = mape(output_series, expected_output_series)
-
-            plt.figure(figsize=(8, 5))
-            original_series.plot(label="original")
-            output_series.plot(label="forecast")
-            plt.title(ticker + " - MAPE: {:.2f}%".format(scores[ticker]))
-            plt.legend()
-
-            plt.show()
-
-        return scores
 
     eval_model(my_model, dataset)
 
-    best_model = RNNModel.load_from_checkpoint(model_name="LSTM", best=True)
+    best_model = RNNModel.load_from_checkpoint(model_name=MODEL_NAME, best=True)
     eval_model(best_model, dataset)

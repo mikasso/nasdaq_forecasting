@@ -13,6 +13,8 @@ data/
 # Charts, etc.
 
 results/
+charts/
+.png
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,visualstudiocode
 
