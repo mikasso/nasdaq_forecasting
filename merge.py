@@ -86,11 +86,13 @@ def present_df(df: pd.DataFrame):
 
 
 def setup_frequency(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.asfreq(CONST.BHOURS_US).fillna(method="ffill")
+    df = df.asfreq(CONST.BHOURS_US)
+    df[CONST.FEATURES.PRICE] = df[CONST.FEATURES.PRICE].fillna(method="ffill")
+    df[CONST.FEATURES.SHARES] = df[CONST.FEATURES.SHARES].fillna(value=0)
     return df
 
 
-for symbol in ["HMY"]:
+for symbol in CONST.TICKERS:
     date_dirs = get_date_dirs(symbol)
     csv_path = merge_parquets_to_csv(symbol, date_dirs)
     df = read_csv_ts(csv_path)
