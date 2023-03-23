@@ -21,7 +21,7 @@ if __name__ == "__main__":
         n_rnn_layers=1,
         dropout=0.3,
         batch_size=64,
-        n_epochs=2000,
+        n_epochs=2500,
         optimizer_kwargs={"lr": 1e-4},
         model_name=MODEL_NAME,
         log_tensorboard=True,
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         },
         loss_fn=MeanSquaredError(),
         show_warnings=True,
-        # This crashes forecast_history -> move time to covariates
+        # TODO This crashes forecast_history -> move time to covariates
         # add_encoders={
         #     "cyclic": {"future": ["month"]},
         #     "datetime_attribute": {"future": ["hour", "dayofweek"]},

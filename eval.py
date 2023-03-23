@@ -54,6 +54,7 @@ def eval_model(model, dataset: SeqDataset, transformed: TransformedDataset):
 
 
 def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedDataset):
+    """Performs multi-step predictions and evaluates the model using model.historical_forecasts()"""
     scores = {}
     first_date = len(dataset.train[0]) + len(dataset.val[0])
     transformed_outputs = model.historical_forecasts(
@@ -65,7 +66,7 @@ def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedD
         last_points_only=True,
         verbose=True,
     )
-    # TODO copied from upper
+    # TODO copied from upper refactor?
     outputs = transformed.scaler.inverse_transform(transformed_outputs)  # TODO should it be in [] ?
     for idx, ticker in enumerate(dataset.used_tickers):
         output = outputs[idx][CONST.FEATURES.PRICE]
@@ -82,39 +83,6 @@ def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedD
         original.plot(label="original")
         output.plot(label="forecast")
         plt.title(ticker + " - MAPE: {:.2f}%".format(scores[ticker]))
-        plt.legend()
-        plt.show()
-
-    return scores
-
-
-def eval_model_in_parts(model, dataset: SeqDataset, transformed: TransformedDataset, horizon=75):
-    """Performs multi-step predictions and evaluates the model"""
-    # TODO doesnt work yet
-    scores = {}
-    LOGGER.info(f"Evaluation of model {model.model_name}")
-    outputs = []
-
-    for offset in range(0, len(dataset.test[0]), 75):
-        if offset > 0:
-            transformed_next_input = concatanete_seq(
-                transformed.test_input, list(map(lambda x: x[:offset], dataset.test))
-            )
-        else:
-            transformed_next_input = transformed.test_input
-
-        transformed_output = model.predict(n=horizon, series=transformed_next_input)
-        output = transformed.scaler.inverse_transform(transformed_output)
-        outputs.append(output)
-
-    for idx, ticker in enumerate(CONST.TICKERS):
-        plt.figure(figsize=(8, 5))
-        original = dataset.series[idx][CONST.FEATURES.PRICE]
-        original.plot(label="original")
-        for output in outputs:
-            output = output[idx][CONST.FEATURES.PRICE]
-            output.plot(label="forecast")
-        plt.title(ticker)
         plt.legend()
         plt.show()
 
