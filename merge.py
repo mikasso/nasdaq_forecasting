@@ -74,15 +74,11 @@ def merge_parquets_to_csv(symbol: str, dir_list: List[str]):
 def get_date_dirs(symbol):
     symbol_path = f"{CONST.PATHS.PARQUET}/{symbol}"
     date_dirs = os.listdir(symbol_path)
-    date_dirs = list(filter(lambda name: name > f"date={CONST.START_DATE}", date_dirs))
+    date_dirs = list(
+        filter(lambda name: name > f"date={CONST.START_DATE}" and name < f"date={CONST.END_DATE}", date_dirs)
+    )
     date_dirs.sort()
     return list(map(lambda x: f"{CONST.PATHS.PARQUET}/{symbol}/{x}", date_dirs))
-
-
-def present_df(df: pd.DataFrame):
-    print(df)
-    df[FEATURES.PRICE].plot(use_index=False)
-    plt.show()
 
 
 def setup_frequency(df: pd.DataFrame) -> pd.DataFrame:
@@ -92,11 +88,13 @@ def setup_frequency(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-for symbol in CONST.TICKERS:
+for symbol in ["PAAS", "GFI", "IAG"]:
     date_dirs = get_date_dirs(symbol)
     csv_path = merge_parquets_to_csv(symbol, date_dirs)
     df = read_csv_ts(csv_path)
     df = setup_frequency(df)
     df.to_csv(csv_path)
+    df["price"].plot()
     LOGGER.info(f"Saved merged parquet for {symbol} succesfully.")
-    # present_df(df)
+
+plt.show()

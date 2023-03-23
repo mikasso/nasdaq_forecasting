@@ -1,74 +1,59 @@
 import logging
-from torchmetrics import MeanSquaredError, MeanAbsolutePercentageError
-import const as CONST
-
 import torch
-
-import matplotlib.pyplot as plt
-
-from darts import TimeSeries
-from darts.dataprocessing.transformers import Scaler
+from torchmetrics import MeanSquaredError
+from SeqDataset import SeqDataset, TransformedDataset
 from darts.models import RNNModel
-from darts.metrics import mape
-from pytorch_lightning.callbacks import EarlyStopping, BatchSizeFinder, LearningRateFinder
-from pytorch_lightning.loggers import TensorBoardLogger
-from eval import eval_model
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateFinder
 
-from utils import SeqDataset
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="lstm")
-MODEL_NAME = "LSTM_DIFF"
+MODEL_NAME = "LSTM"
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("medium")
     LOGGER.info("Initializing dataset")
-    dataset = SeqDataset(sanity_check=False, diff=False)
-
-    my_stopper = EarlyStopping(
-        monitor="val_loss",
-        patience=20,
-        min_delta=0.0000001,
-        mode="min",
-    )
-    my_model = RNNModel(
+    dataset = SeqDataset.load(sanity_check=False, use_pct=False)
+    transformed = TransformedDataset.build_from_dataset(dataset)
+    model = RNNModel(
         model="LSTM",
-        hidden_dim=1020,
-        n_rnn_layers=4,
-        dropout=0.2,
+        hidden_dim=256,
+        n_rnn_layers=1,
+        dropout=0.3,
         batch_size=64,
-        n_epochs=10000,
-        optimizer_kwargs={"lr": 1e-3},
+        n_epochs=2000,
+        optimizer_kwargs={"lr": 1e-4},
         model_name=MODEL_NAME,
         log_tensorboard=True,
         random_state=42,
-        input_chunk_length=68 * 15,
-        output_chunk_length=5,
+        input_chunk_length=512,
+        training_length=512 + 1,
         force_reset=True,
         save_checkpoints=True,
         pl_trainer_kwargs={
-            "callbacks": [my_stopper, LearningRateFinder()],
+            "callbacks": [
+                EarlyStopping(
+                    monitor="val_loss",
+                    patience=20,
+                    min_delta=0.000001,
+                    mode="min",
+                ),
+                LearningRateFinder(),
+            ],
             "accelerator": "gpu",
             "devices": [0],
         },
         loss_fn=MeanSquaredError(),
-        add_encoders={
-            "cyclic": {"future": ["month"]},
-            "datetime_attribute": {"future": ["hour", "dayofweek"]},
-            "position": {"future": ["relative"]},
-            "transformer": Scaler(),
-        },
         show_warnings=True,
+        # This crashes forecast_history -> move time to covariates
+        # add_encoders={
+        #     "cyclic": {"future": ["month"]},
+        #     "datetime_attribute": {"future": ["hour", "dayofweek"]},
+        #     "position": {"future": ["relative"]},
+        #     "transformer": Scaler(),
+        # },
     )
 
     LOGGER.info("Starting training")
-    my_model.fit(
-        dataset.train_transformed,
-        val_series=dataset.val_transformed,
-        verbose=True,
-    )
-
-    eval_model(my_model, dataset)
-
-    best_model = RNNModel.load_from_checkpoint(model_name=MODEL_NAME, best=True)
-    eval_model(best_model, dataset)
+    model.fit(transformed.train, val_series=transformed.val, verbose=True, num_loader_workers=4)
+    LOGGER.info("Finished training")

@@ -17,8 +17,12 @@ def read_csv_ts(csv_path: str) -> pd.DataFrame:
     return df.asfreq(CONST.BHOURS_US)
 
 
-def robust_pct(df: pd.DataFrame) -> pd.DataFrame:
-    return df.pct_change().replace([np.inf, -np.inf], np.nan).dropna()
+def robust_pct(series: pd.Series) -> pd.DataFrame:
+    """Perform pct_change and asserts there's no inf or nan in data"""
+    pd.options.mode.use_inf_as_na = True
+    result = series.pct_change().fillna(0)
+    assert result.isnull().values.any() == False
+    return result
 
 
 def concatanete_seq(a: List[TimeSeries], b: List[TimeSeries]) -> List[TimeSeries]:

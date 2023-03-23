@@ -1,201 +1,158 @@
 import logging
-from typing import List, Tuple
+from typing import Callable, Dict, List, Tuple
 import numpy as np
+from pandas import DataFrame
+from sklearn.preprocessing import MinMaxScaler
 import const as CONST
 from darts.dataprocessing.transformers import Scaler
 from darts import TimeSeries
+from joblib import Parallel, delayed
+from utils import concatanete_seq, read_csv_ts, robust_pct
 
-from utils import read_csv_ts
 
 logging.basicConfig(level=logging.INFO)
-LOGGER = logging.getLogger(name="SeqDataset")
+LOGGER = logging.getLogger(name="Dataset")
 
 
-class SeqDataset:
+class DatasetAccesor:
+    def __init__(
+        self, series: List[TimeSeries], train: List[TimeSeries], val: List[TimeSeries], test: List[TimeSeries]
+    ) -> None:
+        self._series = series
+        self._train = train
+        self._val = val
+        self._test = test
+
+    @property
+    def series(self) -> List[TimeSeries]:
+        return self._series
+
+    @property
+    def train(self) -> List[TimeSeries]:
+        return self._train
+
+    @property
+    def val(self) -> List[TimeSeries]:
+        return self._val
+
+    @property
+    def test(self) -> List[TimeSeries]:
+        return self._test
+
+    @property
+    def test_input(self) -> List[TimeSeries]:
+        """Train concataneted with validation timeseries"""
+        return concatanete_seq(self.train, self.val)
+
+
+def build_covs_selector(cov_features: List[TimeSeries]) -> Callable[[List[TimeSeries]], List[TimeSeries]]:
+    selector = lambda seq: list(map(lambda s: s[cov_features], seq))
+    return selector
+
+
+class TransformedDataset(DatasetAccesor):
+    def __init__(self, series, train, val, test, scaler: Scaler, cov_features: List[str] = []) -> None:
+        super().__init__(series, train, val, test)
+        self._scaler = scaler
+        self.cov_features = cov_features
+        covs_selector = build_covs_selector(self.cov_features)
+        self.cov = DatasetAccesor(
+            covs_selector(self.series),
+            covs_selector(self.train),
+            covs_selector(self.val),
+            covs_selector(self.test),
+        )
+
+    @staticmethod
+    def build_from_dataset(dataset, inner_scaler=MinMaxScaler(feature_range=(0, 1))):
+        LOGGER.info(f"Transforming {len(dataset.used_tickers)} timeseries")
+        scaler = Scaler(inner_scaler, n_jobs=-1)
+        train_transformed = scaler.fit_transform(dataset.train)
+        val_transformed = scaler.transform(dataset.val)
+        test_transformed = scaler.transform(dataset.test)
+        series_transformed = scaler.transform(dataset.series)
+        return TransformedDataset(
+            series_transformed, train_transformed, val_transformed, test_transformed, scaler, dataset.cov_features
+        )
+
+    @property
+    def scaler(self) -> Scaler:
+        return self._scaler
+
+
+class SeqDataset(DatasetAccesor):
     def __init__(
         self,
-        sanity_check=False,
-        scaler=Scaler(),
-        diff=False,
-        target_features=[CONST.FEATURES.PRICE, CONST.FEATURES.SHARES],
+        series,
+        train,
+        val,
+        test,
+        use_pct: bool,
+        target_features: List[str],
+        dfs: Dict[str, DataFrame],
+        used_tickers: List[str],
+        cov_features: List[str] = [],
     ) -> None:
-        self._series_seq, self._train_seq, self._val_seq, self._test_seq = [], [], [], []
+        super().__init__(series, train, val, test)
+        self.use_pct = use_pct
+        self.target_features = target_features
+        self.dfs = dfs
+        self.used_tickers = used_tickers
+        self.cov_features = cov_features
+        covs_selector = build_covs_selector(self.cov_features)
+        self.cov = DatasetAccesor(
+            covs_selector(self.series),
+            covs_selector(self.train),
+            covs_selector(self.val),
+            covs_selector(self.test),
+        )
 
+    def __len__(self):
+        return len(self.series)
+
+    @staticmethod
+    def load(
+        sanity_check=False,
+        use_pct=False,
+        target_features=[CONST.FEATURES.PRICE, CONST.FEATURES.SHARES],
+        cov_features: List[str] = [],
+    ):
+        all_series, train, val, test = [], [], [], []
+        dfs = {}
+        used_tickers = CONST.TICKERS
         if sanity_check == True:
             LOGGER.info("Loading data for sanity check")
             length = 10000
+            used_tickers = [CONST.TICKERS[0]]
         else:
             LOGGER.info("Loading full data, assuming length from AEM.csv")
             length = len(read_csv_ts(f"{CONST.PATHS.MERGED}/AEM.csv"))
 
-        train_split = int(length * 0.8)
-        val_split = int(length * 0.1)
-        load_up_to = load_up_to
+        train_split = int(length * CONST.TRAIN_SPLIT)
+        val_split = int(length * CONST.TEST_SPLIT)
+        load_up_to = length
 
-        for idx, ticker in enumerate(CONST.TICKERS):
+        def process(ticker: str) -> DatasetAccesor:
             LOGGER.info(f"Loading {ticker} timeseries")
             df = read_csv_ts(f"{CONST.PATHS.MERGED}/{ticker}.csv")[:load_up_to][target_features]
-            data = TimeSeries.from_dataframe(df).astype(np.float32)
+            dfs[ticker] = df.copy()
+            if use_pct:
+                df[CONST.FEATURES.PRICE] = robust_pct(df[CONST.FEATURES.PRICE])
+            series = TimeSeries.from_dataframe(df).astype(np.float32)
+            train_series, rest_series = series.split_before(train_split)
+            val_series, test_series = rest_series.split_before(val_split)
+            LOGGER.info(f"Finished loading {ticker} timeseries")
+            res = DatasetAccesor([series], [train_series], [val_series], [test_series])
+            res._inner_name = ticker
+            return res
 
-            series = data.diff() if diff else data
-            train, rest = series.split_before(train_split)
-            val, test = rest.split_before(val_split)
+        results = Parallel(n_jobs=-1)(delayed(process)(ticker) for ticker in used_tickers)
 
-            self._series_seq.append(series)
-            self._train_seq.append(train)
-            self._val_seq.append(val)
-            self._test_seq.append(test)
-            LOGGER.info(f"Loaded {idx+1}/{len(CONST.TICKERS)} of timeseries")
+        LOGGER.info(f"Building seq dataset of timeseries")
+        for result in results:
+            all_series.extend(result.series)
+            train.extend(result.train)
+            val.extend(result.val)
+            test.extend(result.test)
 
-        LOGGER.info(f"Transforming {len(CONST.TICKERS)} timeseries")
-        self._transformer = Scaler()
-        self._train_transformed = self._transformer.fit_transform(self._train_seq)
-        self._val_transformed = self._transformer.transform(self._val_seq)
-        self._test_transformed = self._transformer.transform(self._test_seq)
-        self._series_transformed = self._transformer.transform(self._series_seq)
-
-    @property
-    def series_seq(self) -> List[TimeSeries]:
-        return self._series_seq
-
-    @property
-    def train_seq(self) -> List[TimeSeries]:
-        return self._train_seq
-
-    @property
-    def val_seq(self) -> List[TimeSeries]:
-        return self._val_seq
-
-    @property
-    def test_seq(self) -> List[TimeSeries]:
-        return self._test_seq
-
-    @property
-    def test_input(self) -> List[TimeSeries]:
-        return self._concatanete_seq(self.train_seq, self.val_seq)
-
-    # TRANSFORMED SETS
-
-    @property
-    def series_transformed(self) -> List[TimeSeries]:
-        return self._series_transformed
-
-    @property
-    def train_transformed(self) -> List[TimeSeries]:
-        return self._train_transformed
-
-    @property
-    def val_transformed(self) -> List[TimeSeries]:
-        return self._val_transformed
-
-    @property
-    def test_transformed(self) -> List[TimeSeries]:
-        return self._test_transformed
-
-    @property
-    def test_input_transformed(self) -> List[TimeSeries]:
-        return self._concatanete_seq(self.train_transformed, self.val_transformed)
-
-    @property
-    def transformer(self) -> Scaler:
-        return self._transformer
-
-    def _concatanete_seq(self, a: List[TimeSeries], b: List[TimeSeries]) -> List[TimeSeries]:
-        return list(map(lambda xy: xy[0].concatenate(xy[1]), zip(a, b)))
-
-
-class SeqDatasetWithCov:
-    def __init__(self, sanity_check=False) -> None:
-        self.dataset = SeqDataset(sanity_check)
-
-    def _map_feature(self, seq: List[TimeSeries], feature: str) -> List[TimeSeries]:
-        return list(map(lambda s: s[feature], seq))
-
-    def _concatanete_seq(self, a: List[TimeSeries], b: List[TimeSeries]) -> List[TimeSeries]:
-        return list(map(lambda xy: xy[0].concatenate(xy[1]), zip(a, b)))
-
-    @property
-    def series_seq(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.series_seq, CONST.FEATURES.PRICE)
-
-    @property
-    def train_seq(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.train_seq, CONST.FEATURES.PRICE)
-
-    @property
-    def val_seq(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.val_seq, CONST.FEATURES.PRICE)
-
-    @property
-    def test_seq(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.test_seq, CONST.FEATURES.PRICE)
-
-    @property
-    def test_input(self) -> List[TimeSeries]:
-        return self._concatanete_seq(self.train_seq, self.val_seq)
-
-    # COVARIATES
-
-    @property
-    def series_seq_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.series_seq, CONST.FEATURES.SHARES)
-
-    @property
-    def train_seq_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.train_seq, CONST.FEATURES.SHARES)
-
-    @property
-    def val_seq_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.val_seq, CONST.FEATURES.SHARES)
-
-    @property
-    def test_seq_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.test_seq, CONST.FEATURES.SHARES)
-
-    @property
-    def test_input_cov(self) -> List[TimeSeries]:
-        return self._concatanete_seq(self.train_seq_cov, self.val_seq_cov)
-
-    # TRANSFORMED SETS
-
-    @property
-    def series_transformed(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.series_transformed, CONST.FEATURES.PRICE)
-
-    @property
-    def train_transformed(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.train_transformed, CONST.FEATURES.PRICE)
-
-    @property
-    def val_transformed(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.val_transformed, CONST.FEATURES.PRICE)
-
-    @property
-    def test_transformed(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.test_transformed, CONST.FEATURES.PRICE)
-
-    @property
-    def test_input_transformed(self) -> List[TimeSeries]:
-        return self._concatanete_seq(self.train_transformed, self.val_transformed)
-
-    # TRANSFORMED COVARIATES
-
-    @property
-    def series_transformed_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.series_transformed, CONST.FEATURES.SHARES)
-
-    @property
-    def train_transformed_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.train_transformed, CONST.FEATURES.SHARES)
-
-    @property
-    def val_transformed_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.val_transformed, CONST.FEATURES.SHARES)
-
-    @property
-    def test_transformed_cov(self) -> List[TimeSeries]:
-        return self._map_feature(self.dataset.test_transformed, CONST.FEATURES.SHARES)
-
-    @property
-    def test_input_transformed_cov(self) -> List[TimeSeries]:
-        return self._concatanete_seq(self.train_transformed_cov, self.val_transformed_cov)
+        return SeqDataset(all_series, train, val, test, use_pct, target_features, dfs, used_tickers, cov_features)

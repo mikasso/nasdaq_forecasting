@@ -19,13 +19,12 @@ class FEATURES:
 
 
 FREQ = "1H"
-BHOURS_US = pd.offsets.CustomBusinessHour(start="4:00", end="19:00", calendar=USFederalHolidayCalendar())
+BHOURS_US = pd.offsets.CustomBusinessHour(start="9:00", end="17:00", calendar=USFederalHolidayCalendar())
 
 READ_COLUMNS = ["timestamp", "price", "shares", "canceled"]
 START_DATE = "20080101"
 END_DATE = "20230310"
-TICKERS = ["AEM", "AUY", "HMY", "KGC", "NEM"]
+TICKERS = ["AEM", "AUY", "GFI", "HMY", "IAG", "KGC", "NEM", "PAAS"]
 
-TRAIN_DATE_SPLIT = pd.to_datetime("2021-01-01")
-VAL_DATE_SPLIT = pd.to_datetime("2022-01-01")
-END_DATE = pd.to_datetime("2023-01-01")
+TRAIN_SPLIT = 0.8
+TEST_SPLIT = 0.1
