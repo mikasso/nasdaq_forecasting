@@ -2,12 +2,13 @@ import logging
 import numpy as np
 from pandas import DataFrame
 import torch
-from SeqDataset import SeqDataset, TransformedDataset
+from SeqDataset import DatasetAccesor, SeqDataset, TransformedDataset
 import const as CONST
 import matplotlib.pyplot as plt
 from darts.metrics import mape
 from darts.models import RNNModel
 import pandas as pd
+from lstm import SANITY_CHECK
 from utils import concatanete_seq
 from darts import TimeSeries
 
@@ -53,12 +54,13 @@ def eval_model(model, dataset: SeqDataset, transformed: TransformedDataset):
     return scores
 
 
-def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedDataset):
+def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedDataset, cov_dataset: DatasetAccesor):
     """Performs multi-step predictions and evaluates the model using model.historical_forecasts()"""
     scores = {}
-    first_date = len(dataset.train[0]) + len(dataset.val[0])
+    first_date = len(dataset.train[0]) + len(dataset.val[0]) + int(0.99 * len(dataset.test[0]))
     transformed_outputs = model.historical_forecasts(
         transformed.series,
+        past_covariates=cov_dataset.series,
         retrain=False,
         start=first_date,
         forecast_horizon=1,
@@ -66,7 +68,9 @@ def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedD
         last_points_only=True,
         verbose=True,
     )
+
     # TODO copied from upper refactor?
+    transformed_outputs = [transformed_outputs] if SANITY_CHECK else transformed_outputs
     outputs = transformed.scaler.inverse_transform(transformed_outputs)  # TODO should it be in [] ?
     for idx, ticker in enumerate(dataset.used_tickers):
         output = outputs[idx][CONST.FEATURES.PRICE]
@@ -80,7 +84,7 @@ def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedD
 
         scores[ticker] = mape(output, expected)
         plt.figure(figsize=(8, 5))
-        original.plot(label="original")
+        original[-100:].plot(label="original")
         output.plot(label="forecast")
         plt.title(ticker + " - MAPE: {:.2f}%".format(scores[ticker]))
         plt.legend()
@@ -91,8 +95,8 @@ def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedD
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("medium")
-    MODEL_NAME = "LSTM"
-    dataset = SeqDataset.load(sanity_check=True, use_pct=False)
+    MODEL_NAME = "LSTM_COV"
+    dataset = SeqDataset.load(sanity_check=False, use_pct=False)
     transformed = TransformedDataset.build_from_dataset(dataset)
     model = RNNModel.load_from_checkpoint(model_name=MODEL_NAME, best=True)
     scores = eval_by_step(model, dataset, transformed)

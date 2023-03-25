@@ -54,30 +54,29 @@ class DatasetAccesor:
         return list(map(lambda s: s[0 : self.test_idx], self.series))
 
 
-def get_datecovs(timeseries_seq: List[TimeSeries]) -> List[TimeSeries]:
+def get_datecovs(dataset: DatasetAccesor) -> DatasetAccesor:
+    """Returns future covariates build from date attributes cyclic - month, weekday and hours scaled by MinMaxScaler"""
     date_covs = []
-    for series in timeseries_seq:
+    for series in dataset.series:
         month_series = datetime_attribute_timeseries(
             series.time_index, attribute="month", dtype=np.float32, cyclic=True
         )
         weekday_series = datetime_attribute_timeseries(
             series.time_index, attribute="weekday", dtype=np.float32, cyclic=True
         )
-        hour_series = datetime_attribute_timeseries(series.time_index, attribute="hour", one_hot=True)
-        non_zero_hours = [f"hour_{h}" for h in range(CONST.BHOURS_US.start[0].hour, CONST.BHOURS_US.end[0].hour)]
-        hour_series = hour_series[non_zero_hours]
+        hour_series = datetime_attribute_timeseries(series.time_index, attribute="hour", dtype=np.float32)
+        # The series have the same freq so it's allowed to use the same scaler for train/val/test
+        hour_series = Scaler().fit_transform(hour_series)
         date_cov = concatenate([month_series, weekday_series, hour_series], axis=1)
         date_covs.append(date_cov)
 
-    return date_covs
+    return DatasetAccesor(date_covs, val_idx=dataset.val_idx, test_idx=dataset.test_idx)
 
 
 class TransformedDataset(DatasetAccesor):
     def __init__(self, series: List[TimeSeries], val_idx: int, test_idx: int, scaler: Scaler) -> None:
         super().__init__(series, val_idx, test_idx)
         self._scaler = scaler
-        series_date_covs = get_datecovs(self.series)
-        self._date_cov = DatasetAccesor(series_date_covs, val_idx, test_idx)
 
     @staticmethod
     def build_from_dataset(dataset, inner_scaler=MinMaxScaler(feature_range=(0, 1))):
@@ -91,16 +90,6 @@ class TransformedDataset(DatasetAccesor):
     def scaler(self) -> Scaler:
         return self._scaler
 
-    @property
-    def date_cov(self) -> DatasetAccesor:
-        """Returns future covariates that include date attributes"""
-        return self._date_cov
-
-    @property
-    def features_cov(self) -> DatasetAccesor:
-        """Returns future covariates that include shares or other value series"""
-        pass
-
 
 class SeqDataset(DatasetAccesor):
     def __init__(
@@ -110,13 +99,11 @@ class SeqDataset(DatasetAccesor):
         test_idx: int,
         use_pct: bool,
         target_features: List[str],
-        dfs: Dict[str, DataFrame],
         used_tickers: List[str],
     ) -> None:
         super().__init__(series, val_idx, test_idx)
         self.use_pct = use_pct
         self.target_features = target_features
-        self.dfs = dfs
         self.used_tickers = used_tickers
 
     def __len__(self):
@@ -126,18 +113,20 @@ class SeqDataset(DatasetAccesor):
     def load(
         sanity_check=False,
         use_pct=False,
-        target_features=[CONST.FEATURES.PRICE, CONST.FEATURES.SHARES],
+        target_features=[CONST.FEATURES.PRICE],
+        use_tickers=CONST.TICKERS,
     ):
-        dfs = {}
-        used_tickers = CONST.TICKERS
         if sanity_check == True:
-            LOGGER.info("Loading data for sanity check")
+            LOGGER.info("Sanity check dataset")
             length = 10000
-            used_tickers = [CONST.TICKERS[0]]
+            used_tickers = [use_tickers[0]]
         else:
-            LOGGER.info("Loading full data, assuming length from AEM.csv")
-            length = len(read_csv_ts(f"{CONST.PATHS.MERGED}/AEM.csv"))
-
+            LOGGER.info(f"Loading full data - assuming length f{use_tickers[0]}.csv")
+            length = len(read_csv_ts(f"{CONST.PATHS.MERGED}/{use_tickers[0]}.csv"))
+            used_tickers = use_tickers
+        LOGGER.info(
+            f"Dataset for following features: { ' '.join(target_features) } for tickers { ' '.join(used_tickers) }"
+        )
         val_idx = int(length * CONST.TRAIN_VAL_SPLIT_START)
         test_idx = int(length * CONST.TRAINVAL_TEST_SPLIT_START)
         load_up_to = length
@@ -145,7 +134,6 @@ class SeqDataset(DatasetAccesor):
         def process(ticker: str) -> DatasetAccesor:
             LOGGER.info(f"Loading {ticker} timeseries")
             df = read_csv_ts(f"{CONST.PATHS.MERGED}/{ticker}.csv")[:load_up_to][target_features]
-            dfs[ticker] = df.copy()
             if use_pct:
                 df[CONST.FEATURES.PRICE] = robust_pct(df[CONST.FEATURES.PRICE])
             series = TimeSeries.from_dataframe(df).astype(np.float32)
@@ -154,4 +142,4 @@ class SeqDataset(DatasetAccesor):
 
         all_series = Parallel(n_jobs=-1)(delayed(process)(ticker) for ticker in used_tickers)
         LOGGER.info(f"Completed loading all of timeseries")
-        return SeqDataset(all_series, val_idx, test_idx, use_pct, target_features, dfs, used_tickers)
+        return SeqDataset(all_series, val_idx, test_idx, use_pct, target_features, used_tickers)
