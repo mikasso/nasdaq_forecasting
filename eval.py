@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from darts.metrics import mape
 from darts.models import RNNModel
 import pandas as pd
-from lstm import SANITY_CHECK
+from lstm import MODEL_NAME, SANITY_CHECK, get_datasets
 from utils import concatanete_seq
 from darts import TimeSeries
 
@@ -57,7 +57,11 @@ def eval_model(model, dataset: SeqDataset, transformed: TransformedDataset):
 def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedDataset, cov_dataset: DatasetAccesor):
     """Performs multi-step predictions and evaluates the model using model.historical_forecasts()"""
     scores = {}
-    first_date = len(dataset.train[0]) + len(dataset.val[0]) + int(0.99 * len(dataset.test[0]))
+    first_date = len(dataset.train[0]) + len(dataset.val[0])
+    import logging
+
+    logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.WARNING)
+    logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.WARNING)
     transformed_outputs = model.historical_forecasts(
         transformed.series,
         past_covariates=cov_dataset.series,
@@ -84,20 +88,23 @@ def eval_by_step(model: RNNModel, dataset: SeqDataset, transformed: TransformedD
 
         scores[ticker] = mape(output, expected)
         plt.figure(figsize=(8, 5))
-        original[-100:].plot(label="original")
+        original.plot(label="original")
         output.plot(label="forecast")
         plt.title(ticker + " - MAPE: {:.2f}%".format(scores[ticker]))
         plt.legend()
-        plt.show()
+        plt.show(False)
+        plt.savefig(
+            fname=f"{ticker}.svg",
+            format="svg",
+        )
+        output.pd_dataframe().to_csv(f"results/BlockRNNModel_LSTM_O1/output_{ticker}.csv")
 
     return scores
 
 
 if __name__ == "__main__":
     torch.set_float32_matmul_precision("medium")
-    MODEL_NAME = "LSTM_COV"
-    dataset = SeqDataset.load(sanity_check=False, use_pct=False)
-    transformed = TransformedDataset.build_from_dataset(dataset)
+    dataset, transformed, cov_dataset = get_datasets()
     model = RNNModel.load_from_checkpoint(model_name=MODEL_NAME, best=True)
-    scores = eval_by_step(model, dataset, transformed)
+    scores = eval_by_step(model, dataset, transformed, cov_dataset)
     print(scores)

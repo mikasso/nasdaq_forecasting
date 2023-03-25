@@ -1,4 +1,5 @@
 import logging
+from typing import Tuple
 import torch
 from torchmetrics import MeanSquaredError
 from SeqDataset import DatasetAccesor, SeqDataset, TransformedDataset, get_datecovs
@@ -22,9 +23,8 @@ MODEL_NAME = "BlockRNNModel_LSTM_O1"
 SANITY_CHECK = False
 USE_PCT = False
 
-if __name__ == "__main__":
-    torch.set_float32_matmul_precision("medium")
-    LOGGER.info("Initializing dataset")
+
+def get_datasets() -> Tuple[SeqDataset, TransformedDataset, DatasetAccesor]:
     dataset = SeqDataset.load(sanity_check=SANITY_CHECK, use_pct=USE_PCT, target_features=[CONST.FEATURES.PRICE])
     transformed = TransformedDataset.build_from_dataset(dataset)
     shares_dataset = SeqDataset.load(
@@ -37,6 +37,14 @@ if __name__ == "__main__":
         for dates, shares in zip(dates_covariates.series, shares_transformed.series)
     ]
     cov_dataset = DatasetAccesor(covariates, dataset.val_idx, dataset.test_idx)
+    return dataset, transformed, cov_dataset
+
+
+if __name__ == "__main__":
+    torch.set_float32_matmul_precision("medium")
+    LOGGER.info("Initializing dataset")
+
+    dataset, transformed, cov_dataset = get_datasets()
 
     model = BlockRNNModel(
         model="LSTM",
