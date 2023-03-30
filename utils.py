@@ -2,6 +2,7 @@ import logging
 from typing import List
 import numpy as np
 import pandas as pd
+import torch
 import const as CONST
 from const import FEATURES
 from darts import TimeSeries
@@ -10,10 +11,17 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="utils")
 
 
-def read_csv_ts(csv_path: str) -> pd.DataFrame:
+def assert_pytorch_is_using_gpu():
+    assert torch.cuda.is_available()
+    assert torch.cuda.device_count()
+    LOGGER.info(f"Pytorch using devince no. {torch.cuda.current_device()}")
+
+
+def read_csv_ts(csv_path: str, time_key=FEATURES.TIMESTAMP) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
-    df[FEATURES.TIMESTAMP] = pd.DatetimeIndex(df[FEATURES.TIMESTAMP])
-    df.set_index(FEATURES.TIMESTAMP, inplace=True)
+    df[time_key] = pd.DatetimeIndex(df[time_key])
+    df.set_index(time_key, inplace=True)
+    df = df[pd.Timestamp(CONST.START_DATE) : pd.Timestamp(CONST.END_DATE)]
     return df.asfreq(CONST.BHOURS_US)
 
 

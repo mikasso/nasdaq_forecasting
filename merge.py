@@ -88,13 +88,19 @@ def setup_frequency(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-for symbol in ["PAAS", "GFI", "IAG"]:
-    date_dirs = get_date_dirs(symbol)
-    csv_path = merge_parquets_to_csv(symbol, date_dirs)
-    df = read_csv_ts(csv_path)
-    df = setup_frequency(df)
-    df.to_csv(csv_path)
-    df["price"].plot()
-    LOGGER.info(f"Saved merged parquet for {symbol} succesfully.")
+if __name__ == "__main__":
+    # gold parsing
+    df = read_csv_ts(f"{CONST.PATHS.DATA}/gold/XAUUSD.csv")[["Close"]].rename({"Close": "gold_price"}, axis=1)
+    df[CONST.FEATURES.GOLD_PRICE] = df[CONST.FEATURES.GOLD_PRICE].fillna(method="ffill")
+    df.to_csv(f"{CONST.PATHS.MERGED}/gold.csv")
+    # stocks to parse
+    for symbol in CONST.TICKERS:
+        date_dirs = get_date_dirs(symbol)
+        csv_path = merge_parquets_to_csv(symbol, date_dirs)
+        df = read_csv_ts(csv_path)
+        df = setup_frequency(df)
+        df.to_csv(csv_path)
+        df["price"].plot()
+        LOGGER.info(f"Saved merged parquet for {symbol} succesfully.")
 
-plt.show()
+    plt.show()

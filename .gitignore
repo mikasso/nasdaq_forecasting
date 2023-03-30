@@ -6,6 +6,7 @@ models/
 logs/
 darts_logs/
 tft/
+lightning_logs/
 # Timeseries
 
 data/
