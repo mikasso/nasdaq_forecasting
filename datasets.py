@@ -57,6 +57,10 @@ class DatasetAccesor:
     def test(self) -> List[TimeSeries]:
         return list(map(lambda s: s[self.test_idx :], self.series))
 
+    def slice(self, start=0, end=None) -> List[TimeSeries]:
+        end = len(self.series[0]) if end == None else end
+        return list(map(lambda s: s[start:end], self.series))
+
     @property
     def test_input(self) -> List[TimeSeries]:
         """Train concataneted with validation timeseries"""
@@ -106,8 +110,9 @@ class DatasetTransformer:
 
         return DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
 
-    def inverse(self, transformed_seq: List[TimeSeries]) -> List[TimeSeries]:
+    def inverse(self, transformed_seq: List[TimeSeries], n_jobs=-1) -> List[TimeSeries]:
         """Expects forecast series as transformed_seq"""
+        self.scaler.set_n_jobs(n_jobs)
         series_seq = transformed_seq
         if self.scaler != None:
             self._logger.info(f"Inversing darts scaler: {self.scaler.name}")
@@ -115,16 +120,16 @@ class DatasetTransformer:
 
         if self.used_diff:
             self._logger.info(f"Inversing differencing")
-            series_seq = self._inverse_differencing(series_seq)
+            series_seq = self._inverse_differencing(series_seq, n_jobs)
 
         if self.used_smoothing:
             self._logger.info(f"Inversing smoothing")
             past_inversed = self._get_past_obs(series_seq, self._smoothed.series)
-            series_seq = inverse_smooth_seq(past_inversed, series_seq)
+            series_seq = inverse_smooth_seq(past_inversed, series_seq, n_jobs)
 
         return series_seq
 
-    def _inverse_differencing(self, series_seq: List[TimeSeries]):
+    def _inverse_differencing(self, series_seq: List[TimeSeries], n_jobs=-1):
         def process(transformed: TimeSeries, last_value: np.number):
             series_values = transformed.values(copy=False)
             series_values[0, 0] = series_values[0, 0] + last_value
@@ -132,7 +137,7 @@ class DatasetTransformer:
                 series_values[idx, 0] = series_values[idx, 0] + series_values[idx - 1, 0]
             return transformed
 
-        return Parallel(n_jobs=-1)(
+        return Parallel(n_jobs=n_jobs)(
             delayed(process)(transformed, past_inversed.last_value())
             for (transformed, past_inversed) in zip(
                 series_seq, self._get_past_obs(series_seq, self._before_diff.series)

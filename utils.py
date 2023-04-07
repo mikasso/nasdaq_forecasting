@@ -1,4 +1,6 @@
 import logging
+import os
+import shutil
 from typing import List
 import numpy as np
 import pandas as pd
@@ -35,3 +37,12 @@ def robust_pct(series: pd.Series) -> pd.DataFrame:
 
 def concatanete_seq(a: List[TimeSeries], b: List[TimeSeries]) -> List[TimeSeries]:
     return list(map(lambda xy: xy[0].concatenate(xy[1]), zip(a, b)))
+
+
+def create_folder(path: str, delete_if_exists=False):
+    try:
+        if delete_if_exists:
+            shutil.rmtree(path, ignore_errors=True)
+        os.makedirs(path)
+    except OSError:
+        LOGGER.error(f"Couldn't create folder {path}")

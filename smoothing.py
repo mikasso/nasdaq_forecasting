@@ -11,9 +11,9 @@ def smooth_seq(series_seq: List[TimeSeries], alpha=ALPHA):
 
 
 def inverse_smooth_seq(
-    transformed_past_seq: List[TimeSeries], forecast_transformed_seq: List[TimeSeries], alpha=ALPHA
+    transformed_past_seq: List[TimeSeries], forecast_transformed_seq: List[TimeSeries], alpha=ALPHA, n_jobs=-1
 ) -> List[TimeSeries]:
-    return Parallel(n_jobs=-1)(
+    return Parallel(n_jobs=n_jobs)(
         delayed(inverse_smooth)(past, forecast, alpha)
         for past, forecast in zip(transformed_past_seq, forecast_transformed_seq)
     )

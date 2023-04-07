@@ -1,7 +1,26 @@
+from enum import Enum
 import pandas as pd
 import pandas_market_calendars as mcal
 
 from pandas.tseries.holiday import USFederalHolidayCalendar
+
+
+class ModelTypes(Enum):
+    rnn = "RNN"
+    lstm = "LSTM"
+    gru = "GRU"
+    transformer = "Transformer"
+    tft = "TFT"
+
+
+RNN_NETWORKS = [ModelTypes.rnn, ModelTypes.lstm, ModelTypes.gru]
+
+
+class ModelConfig:
+    def __init__(self, model_type: ModelTypes, output_len: int, model_name=None) -> None:
+        self.model_name = f"{model_type}_out_{output_len}" if model_name == None else model_name
+        self.model_type = model_type
+        self.output_len = output_len
 
 
 class PATHS:
@@ -45,8 +64,9 @@ SANITY_CHECK = False
 USE_DIFF = True
 USE_SMOOTHING = True
 USE_SCALER = True
-MODEL_NAME = "BlockRNNModel_LSTM_O5_2"
 
+
+MODEL_CONFIG = ModelConfig(ModelTypes.gru, 1, "TestGRU_01")
 
 saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]
 

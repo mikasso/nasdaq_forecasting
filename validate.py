@@ -1,4 +1,5 @@
 import logging
+import types
 from typing import List
 import numpy as np
 from pandas import DataFrame
@@ -16,32 +17,18 @@ from darts.models import BlockRNNModel
 from darts.utils.data.inference_dataset import (
     PastCovariatesInferenceDataset,
 )
+from darts import concatenate
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="eval")
 
+from torch.utils.data import Dataset, DataLoader
 
-def get_multistep_predictions(
-    model: RNNModel,
-    ds: Datasets,
-    last_points_only=False,
-    forecast_horizon=5,
-) -> List[TimeSeries]:
-    """Performs multi-step predictions and evaluates the model using model.historical_forecasts()"""
-    start = ds.original.series[0].get_index_at_point(ds.original.test[0].start_time())
-    transformed_outputs = model.historical_forecasts(
-        ds.transformed.series,
-        past_covariates=ds.covariances.series,
-        retrain=False,
-        start=start,
-        forecast_horizon=forecast_horizon,
-        stride=1,
-        last_points_only=last_points_only,
-        verbose=True,
-    )
-    transformed_outputs = [transformed_outputs] if CONST.SANITY_CHECK else transformed_outputs
-    predictions = ds.transformer.inverse(transformed_outputs)
-    return predictions
+
+def _predict_step(self, val_batch, batch_idx) -> torch.Tensor:
+    """performs predict step hacky"""
+    output = self._produce_train_output(val_batch[:-1])
+    return output
 
 
 def save_predictions(predictions: List[TimeSeries], tickers: List[str], model_name: str):
@@ -50,21 +37,27 @@ def save_predictions(predictions: List[TimeSeries], tickers: List[str], model_na
         df.to_csv(f"results/{model_name}/predicted_{ticker}.csv")
 
 
-def main():
+def main(config=CONST.MODEL_CONFIG):
     torch.set_float32_matmul_precision("medium")
     logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.WARNING)
     logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.WARNING)
     ds = load_datasets()
-    model_name = CONST.MODEL_NAME
-    model = BlockRNNModel.load_from_checkpoint(model_name=model_name, best=True)
-    test_input_dataset = model._build_train_dataset(
-        target=ds.transformed.series,
-        past_covariates=ds.covariances.series,
+
+    model = BlockRNNModel.load_from_checkpoint(model_name=config.model_name, best=True)
+    model.model.set_predict_parameters(1, 1, 1, 128, 4)
+    model.trainer = model._init_trainer(model.trainer_params)
+
+    test_input_start = ds.transformed.test_idx - model.input_chunk_length
+    test_data = ds.transformed.slice(test_input_start)
+    test_covariates = ds.covariances.slice(test_input_start)
+    val_dataset = model._build_train_dataset(
+        target=test_data,
+        past_covariates=test_covariates,
         future_covariates=None,
         max_samples_per_ts=None,
     )
-    test_dataloader = torch.utils.data.DataLoader(
-        test_input_dataset,
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset,
         batch_size=model.batch_size,
         shuffle=False,
         num_workers=4,
@@ -72,14 +65,23 @@ def main():
         drop_last=False,
         collate_fn=model._batch_collate_fn,
     )
-    trainer = Trainer(accelerator="gpu")
-    features = next(iter(test_dataloader))
-    # val_metrics = trainer.validate(model=model.model, dataloaders=val_dataloader)
-    # print(val_metrics)
-    predict = trainer.predict(model=model.model, dataloaders=test_dataloader, return_predictions=True)
-    print(predict)
-    print("end")
+
+    model.model.predict_step = types.MethodType(_predict_step, model.model)
+
+    predict = model.trainer.predict(model=model.model, dataloaders=val_dataloader)
+    flatten_tensors = [torch.flatten(tensor) for tensor in predict]
+    result_tensor = torch.cat(flatten_tensors)
+
+    results = []
+    for idx, series in enumerate(ds.original.test):
+        start = idx * len(series)
+        end = start + len(series)
+        values = result_tensor[start:end].numpy()
+        result = TimeSeries.from_times_and_values(series.time_index, values)
+        results.append(result)
+
+    inversed_results = ds.transformer.inverse(results)
 
 
 if __name__ == "__main__":
-    main()
+    main(CONST.MODEL_CONFIG)

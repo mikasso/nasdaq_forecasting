@@ -69,8 +69,7 @@ def get_mape_scores(original: SeqDataset, predictions: List[TimeSeries]) -> pd.S
     return df_score
 
 
-def main():
-    model_name = "BlockRNNModel_LSTM_O1"
+def main(model_name: str):
     ds = load_datasets()
     predictions = load_predictions(model_name=model_name, tickers=ds.original.used_tickers)
     model_scores = get_mape_scores(ds.original, predictions)
@@ -82,4 +81,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    main(CONST.MODEL_NAME)
