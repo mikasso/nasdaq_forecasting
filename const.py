@@ -66,7 +66,7 @@ USE_SMOOTHING = True
 USE_SCALER = True
 
 
-MODEL_CONFIG = ModelConfig(ModelTypes.gru, 1, "TestGRU_01")
+MODEL_CONFIG = ModelConfig(ModelTypes.gru, 1, "GRU_O7")
 
 saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]
 

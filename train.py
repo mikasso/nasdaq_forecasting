@@ -20,9 +20,9 @@ def train_model(model):
     LOGGER.info(f"Starting training {model.model_name}")
     model = model.fit(
         ds.transformed.train,
-        past_covariates=ds.covariances.train,
+        past_covariates=ds.covariates.train,
         val_series=ds.transformed.val,
-        val_past_covariates=ds.covariances.val,
+        val_past_covariates=ds.covariates.val,
         verbose=True,
         num_loader_workers=4,
     )

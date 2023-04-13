@@ -1,6 +1,7 @@
 from typing import List
 from darts import TimeSeries
 from joblib import Parallel, delayed
+import numpy as np
 
 
 ALPHA = 0.5
@@ -11,11 +12,11 @@ def smooth_seq(series_seq: List[TimeSeries], alpha=ALPHA):
 
 
 def inverse_smooth_seq(
-    transformed_past_seq: List[TimeSeries], forecast_transformed_seq: List[TimeSeries], alpha=ALPHA, n_jobs=-1
+    inital_value_seq: List[np.number], forecast_transformed_seq: List[TimeSeries], alpha=ALPHA, n_jobs=-1
 ) -> List[TimeSeries]:
     return Parallel(n_jobs=n_jobs)(
-        delayed(inverse_smooth)(past, forecast, alpha)
-        for past, forecast in zip(transformed_past_seq, forecast_transformed_seq)
+        delayed(inverse_smooth)(inital_value, forecast, alpha)
+        for inital_value, forecast in zip(inital_value_seq, forecast_transformed_seq)
     )
 
 
@@ -32,9 +33,8 @@ def smooth(series: TimeSeries, alpha=ALPHA):
     return TimeSeries.from_times_and_values(series.time_index, results, freq=series.freq, columns=series.components)
 
 
-def inverse_smooth(transformed_past: TimeSeries, forecast_transformed: TimeSeries, alpha=ALPHA):
+def inverse_smooth(inital_value: np.number, forecast_transformed: TimeSeries, alpha=ALPHA):
     """inverses exponentialSmoothing, original must contain first date of transformed"""
-    first_value = transformed_past.last_value()
     results = forecast_transformed.values(copy=True)
     values = forecast_transformed.values(copy=False)
 
@@ -43,8 +43,32 @@ def inverse_smooth(transformed_past: TimeSeries, forecast_transformed: TimeSerie
 
     for idx, [value] in enumerate(values):  # only readonly operations
         if idx == 0:
-            results[0, 0] = calculate(first_value, value)
+            results[0, 0] = calculate(inital_value, value)
         else:
             results[idx, 0] = calculate(values[idx - 1, 0], value)
 
-    return TimeSeries.from_times_and_values(forecast_transformed.time_index, results, freq=forecast_transformed.freq)
+    output = TimeSeries.from_times_and_values(forecast_transformed.time_index, results, freq=forecast_transformed.freq)
+
+    return output
+
+
+def apply_differencing(series_seq: List[TimeSeries]):
+    def process(s):
+        s = s.diff(dropna=False)  # keep length of timeseries
+        s.values(copy=False)[0, 0] = 0.0
+        return s
+
+    return Parallel(n_jobs=-1)(delayed(process)(s) for s in series_seq)
+
+
+def inverse_differencing(initial_values_seq: List[np.number], series_seq: List[TimeSeries], n_jobs=-1):
+    def process(transformed: TimeSeries, initial_value: np.number):
+        series_values = transformed.values(copy=False)
+        series_values[0, 0] = series_values[0, 0] + initial_value
+        for idx in range(1, len(series_values)):
+            series_values[idx, 0] = series_values[idx, 0] + series_values[idx - 1, 0]
+        return transformed
+
+    return Parallel(n_jobs=n_jobs)(
+        delayed(process)(transformed, last_value) for (transformed, last_value) in zip(series_seq, initial_values_seq)
+    )

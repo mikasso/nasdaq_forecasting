@@ -7,13 +7,10 @@ from sklearn.preprocessing import MinMaxScaler
 import const as CONST
 from darts.dataprocessing.transformers import (
     Scaler,
-    MissingValuesFiller,
-    Mapper,
-    InvertibleMapper,
 )
 from darts import TimeSeries
 from joblib import Parallel, delayed
-from smoothing import inverse_smooth_seq, smooth_seq
+from smoothing import apply_differencing, inverse_differencing, inverse_smooth_seq, smooth_seq
 from utils import concatanete_seq, read_csv_ts, robust_pct
 from darts.utils.timeseries_generation import datetime_attribute_timeseries
 from darts import concatenate
@@ -83,22 +80,23 @@ class DatasetTransformer:
         self._logger = logging.getLogger(name="DatasetTransformer")
         self._logger.setLevel(level=logging.INFO if verbose else logging.WARN)
         self._alpha = alpha
-        self._smoothed = None
+        self.before_smoothed = None
         self._before_diff = None
         self.n_jobs = n_jobs
 
     def transform(self, dataset: DatasetAccesor) -> DatasetAccesor:
         self._logger.info(f"Starting transforming {len(dataset.series)} series.")
         series_seq = dataset.series
+        self.seq_len = len(series_seq)
         if self.used_smoothing:
             self._logger.info(f"Applying exponential smoothing")
             series_seq = smooth_seq(series_seq, self._alpha)
-            self._smoothed = DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
+            self.before_smoothed = DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
 
         if self.used_diff:
             self._logger.info(f"Applying differencing")
             self._before_diff = DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
-            series_seq = self._apply_differencing(series_seq)
+            series_seq = apply_differencing(series_seq)
 
         if self.scaler != None:
             self._logger.info(f"Applying darts scaler {self.scaler.name}")
@@ -112,54 +110,33 @@ class DatasetTransformer:
 
     def inverse(self, transformed_seq: List[TimeSeries], n_jobs=-1) -> List[TimeSeries]:
         """Expects forecast series as transformed_seq"""
-        self.scaler.set_n_jobs(n_jobs)
         series_seq = transformed_seq
         if self.scaler != None:
+            self.scaler.set_n_jobs(n_jobs)
             self._logger.info(f"Inversing darts scaler: {self.scaler.name}")
             series_seq = self.scaler.inverse_transform(series_seq)
 
         if self.used_diff:
             self._logger.info(f"Inversing differencing")
-            series_seq = self._inverse_differencing(series_seq, n_jobs)
+            last_values = self.get_last_historical_value_seq(series_seq, self._before_diff.series)
+            series_seq = inverse_differencing(last_values, series_seq, n_jobs=n_jobs)
 
         if self.used_smoothing:
             self._logger.info(f"Inversing smoothing")
-            past_inversed = self._get_past_obs(series_seq, self._smoothed.series)
-            series_seq = inverse_smooth_seq(past_inversed, series_seq, n_jobs)
+            last_values = self.get_last_historical_value_seq(series_seq, self.before_smoothed.series)
+            series_seq = inverse_smooth_seq(last_values, series_seq, n_jobs=n_jobs)
 
         return series_seq
 
-    def _inverse_differencing(self, series_seq: List[TimeSeries], n_jobs=-1):
-        def process(transformed: TimeSeries, last_value: np.number):
-            series_values = transformed.values(copy=False)
-            series_values[0, 0] = series_values[0, 0] + last_value
-            for idx in range(1, len(series_values)):
-                series_values[idx, 0] = series_values[idx, 0] + series_values[idx - 1, 0]
-            return transformed
-
-        return Parallel(n_jobs=n_jobs)(
-            delayed(process)(transformed, past_inversed.last_value())
-            for (transformed, past_inversed) in zip(
-                series_seq, self._get_past_obs(series_seq, self._before_diff.series)
-            )
-        )
-
-    def _get_past_obs(
+    def get_last_historical_value_seq(
         self, relative_series_seq: List[TimeSeries], saved_inversed: List[TimeSeries]
-    ) -> List[TimeSeries]:
-        past_seq = []
+    ) -> List[np.number]:
+        last_value_seq = []
         for (transformed, saved) in zip(relative_series_seq, saved_inversed):
-            past_end = saved.get_index_at_point(transformed.start_time())
-            past_seq.append(saved[:past_end])
-        return past_seq
-
-    def _apply_differencing(self, series_seq: List[TimeSeries]):
-        def process(s):
-            s = s.diff(dropna=False)  # keep length of timeseries
-            s.values(copy=False)[0, 0] = 0.0
-            return s
-
-        return Parallel(n_jobs=-1)(delayed(process)(s) for s in series_seq)
+            index = saved.get_index_at_point(transformed.start_time()) - 1
+            last_value = saved[index].last_value()
+            last_value_seq.append(last_value)
+        return last_value_seq
 
     @property
     def scaler(self) -> Scaler:
@@ -227,12 +204,12 @@ class Datasets:
         original: SeqDataset,
         trasformer: DatasetTransformer,
         transformed: DatasetAccesor,
-        covariances: DatasetAccesor,
+        covariates: DatasetAccesor,
     ) -> None:
         self.original = original
         self.transformer = trasformer
         self.transformed = transformed
-        self.covariances = covariances
+        self.covariates = covariates
 
     @staticmethod
     def get_datasets_path(sanity_check) -> str:
@@ -242,7 +219,7 @@ class Datasets:
     def build_and_save(sanity_check=CONST.SANITY_CHECK):
         LOGGER.info("Building a new dataset")
         path = Datasets.get_datasets_path(sanity_check)
-        datasets = Datasets.build_datasets()
+        datasets = Datasets.build_datasets(sanity_check)
         LOGGER.info(f"Saving a new dataset to {path}")
         dump(datasets, path)
 
@@ -304,6 +281,9 @@ class Datasets:
         return Datasets(dataset, transformer, transformed, cov_dataset)
 
 
+from darts.utils.missing_values import missing_values_ratio
+
+
 def load_datasets(
     sanity_check=CONST.SANITY_CHECK,
 ) -> Datasets:
@@ -313,23 +293,25 @@ def load_datasets(
     return datasets
 
 
+def assert_error(error: List[float] | float, name: str, eps=0.00001):
+    error = error if hasattr(error, "__len__") else [error]
+    LOGGER.info(f"{name} assert inversed test is equal to orignal test series")
+    print(error)
+    for e in error:
+        assert e < eps
+
+
 def test_transforming(ds: Datasets):
     LOGGER.info("testing transforming")
     transformed = ds.transformer.transform(ds.original)
     inversed_test = ds.transformer.inverse(transformed.test)
 
     error = mape(inversed_test, ds.original.test)
-    print(error)
-    LOGGER.info("assert inversed test is equal to orignal test series")
-    for e in error:
-        assert e < 0.00001
+    assert_error(error, "transforming")
     inversed_test[0].plot()
     ds.original.test[0].plot()
 
     plt.show()
-
-
-from darts.utils.missing_values import missing_values_ratio
 
 
 def test_datasets(ds: Datasets):
@@ -340,12 +322,42 @@ def test_datasets(ds: Datasets):
     for series in ds.transformed.series:
         assert missing_values_ratio(series) == 0
     LOGGER.info("Checking nans in covariates")
-    for series in ds.covariances.series:
+    for series in ds.covariates.series:
         assert missing_values_ratio(series) == 0
+
+
+def test_diff(ds: Datasets):
+    transformer = DatasetTransformer(None, use_diff=True, use_smoothing=False)
+    diff = transformer.transform(ds.original)
+    inversed = transformer.inverse(diff.test)
+    error = mape(ds.original.test, inversed)
+    assert_error(error, "diff")
+
+
+def test_smoothing(ds: Datasets):
+    transformer = DatasetTransformer(None, use_diff=False, use_smoothing=True, n_jobs=1)
+    smoothed = transformer.transform(ds.original)
+    inversed = transformer.inverse(smoothed.test, n_jobs=1)
+    error = mape(ds.original.test, inversed)
+    assert_error(error, "smoothing")
+
+
+def test_smoothing_on_series(series: TimeSeries):
+    smoothed = smooth_seq([series])[0]
+    original = series[-1000:]
+    test = smoothed[-1000:]
+    last_val = smoothed[-1001].first_value()
+    print(last_val)
+    inversed = inverse_smooth_seq([last_val], [test])
+    error = mape(inversed, original)
+    assert_error(error, "smoothing on series")
 
 
 if __name__ == "__main__":
     Datasets.build_and_save()
     ds = load_datasets()
     test_datasets(ds)
+    test_diff(ds)
+    test_smoothing_on_series(ds.original.series[0])
+    test_smoothing(ds)
     test_transforming(ds)

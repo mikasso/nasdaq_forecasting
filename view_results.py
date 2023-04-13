@@ -36,7 +36,9 @@ def plot_series(series: TimeSeries, predicted: TimeSeries, offset=0):
     plt.plot(x, y, label="predicted")
 
 
-def visualize_predictions(original: SeqDataset, predictions: List[TimeSeries], model_name: str, save=True):
+def visualize_predictions(
+    original: SeqDataset, predictions: List[TimeSeries], model_name: str, title_prefix="", save=True
+):
     for idx, ticker in enumerate(original.used_tickers):
         predicted = predictions[idx]
         expected = original.test[idx]
@@ -46,7 +48,7 @@ def visualize_predictions(original: SeqDataset, predictions: List[TimeSeries], m
         series.plot(label="original")
         predicted.plot(label="predicted")
         # plot_series(series, predicted, offset=27400)
-        title = ticker + " - MAPE: {:.2f}%".format(mape_error)
+        title = f"{ticker} {title_prefix}" + " - MAPE: {:.2f}%".format(mape_error)
         plt.title(title)
         plt.legend()
         fig1 = plt.gcf()

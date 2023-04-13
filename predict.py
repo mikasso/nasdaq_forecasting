@@ -29,7 +29,7 @@ def get_multistep_predictions(
     model.predict_from_dataset
     transformed_outputs = model.historical_forecasts(
         series=ds.transformed.slice(0, len(ds.transformed.test_input[0]) + 2),  # TODO dont use slice
-        past_covariates=ds.covariances.slice(0, len(ds.transformed.test_input[0]) + 2),
+        past_covariates=ds.covariates.slice(0, len(ds.transformed.test_input[0]) + 2),
         retrain=False,
         start=start,
         forecast_horizon=model.output_chunk_length,
