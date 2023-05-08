@@ -3,9 +3,12 @@ import logging
 import model_rnn
 import model_tft
 import model_transformer
-import predict
+import _predict
 from const import ModelConfig, RNN_NETWORKS, ModelTypes
+from utils import create_folder
+import validate
 import view_results
+from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Main runner")
@@ -24,20 +27,24 @@ def dispatch_model_training(config: ModelConfig):
 
 if __name__ == "__main__":
     models = [
-        ModelConfig(ModelTypes.rnn, 1),
-        ModelConfig(ModelTypes.gru, 1),
-        ModelConfig(ModelTypes.lstm, 1),
-        ModelConfig(ModelTypes.transformer, 1),
+        # ModelConfig(ModelTypes.rnn, 1),
+        # ModelConfig(ModelTypes.gru, 1),
+        # ModelConfig(ModelTypes.lstm, 1),
+        # ModelConfig(ModelTypes.rnn, 7),
+        # ModelConfig(ModelTypes.gru, 7),
+        # ModelConfig(ModelTypes.lstm, 7),
+        # ModelConfig(ModelTypes.transformer, 1),
         ModelConfig(ModelTypes.tft, 1),
-        ModelConfig(ModelTypes.rnn, 7),
-        ModelConfig(ModelTypes.gru, 7),
-        ModelConfig(ModelTypes.lstm, 7),
-        ModelConfig(ModelTypes.transformer, 7),
-        ModelConfig(ModelTypes.tft, 7),
+        # ModelConfig(ModelTypes.rnn, 7),
+        # ModelConfig(ModelTypes.gru, 7),
+        # ModelConfig(ModelTypes.lstm, 7),
+        # ModelConfig(ModelTypes.transformer, 7),
+        # ModelConfig(ModelTypes.tft, 7),
     ]
 
     for model_config in models:
         LOGGER.info(f"Running model: {model_config.model_name}")
+        create_folder(model_config.result_path, delete_if_exists=True)
         dispatch_model_training(model_config)
-        predict.main(model_config.model_name)
+        validate.main(model_config)
         LOGGER.info(f"Finished running model: {model_config.model_name}")

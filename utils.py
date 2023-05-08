@@ -2,15 +2,30 @@ import logging
 import os
 import shutil
 from typing import List
+import joblib
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 import torch
 import const as CONST
-from const import FEATURES
+from const import FEATURES, ModelConfig
 from darts import TimeSeries
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="utils")
+
+
+def visualize_history(model_config: ModelConfig, train_loss: List[int], val_loss: List[int], block=False):
+    plt.figure(f"{model_config.model_name} loss")
+    plt.plot(train_loss)
+    plt.plot(val_loss)
+    plt.title(f"model {model_config.model_name} loss")
+    plt.ylabel("loss")
+    plt.xlabel("epoch")
+    plt.legend(["train", "validation"], loc="upper right")
+    fig1 = plt.gcf()
+    fig1.savefig(f"{model_config.result_path}/loss.svg", format="svg")
+    joblib.dump(fig1, f"{model_config.result_path}/loss.pkl")
 
 
 def assert_pytorch_is_using_gpu():

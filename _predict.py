@@ -1,3 +1,4 @@
+# Might be deleted later
 import logging
 from typing import List
 import numpy as np
@@ -26,15 +27,13 @@ def get_multistep_predictions(
     """Performs multi-step predictions and evaluates the model using model.historical_forecasts()"""
     predictions = []
     start = ds.original.test[0].start_time()
-    model.predict_from_dataset
+    sliced = len(ds.transformed.test_input[0]) + 3
     transformed_outputs = model.historical_forecasts(
-        series=ds.transformed.slice(0, len(ds.transformed.test_input[0]) + 2),  # TODO dont use slice
-        past_covariates=ds.covariates.slice(0, len(ds.transformed.test_input[0]) + 2),
+        series=ds.transformed.slice(0, sliced),  # TODO dont use slice
+        past_covariates=ds.covariates.slice(0, sliced),
         retrain=False,
         start=start,
         forecast_horizon=model.output_chunk_length,
-        stride=1,
-        last_points_only=False,
         verbose=True,
     )
     transformed_outputs = [transformed_outputs] if CONST.SANITY_CHECK else transformed_outputs

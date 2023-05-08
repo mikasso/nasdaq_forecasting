@@ -108,12 +108,14 @@ class DatasetTransformer:
 
         return DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
 
-    def inverse(self, transformed_seq: List[TimeSeries], n_jobs=-1) -> List[TimeSeries]:
+    def inverse(self, transformed_seq: List[TimeSeries], n_jobs=-1, verbose=True) -> List[TimeSeries]:
         """Expects forecast series as transformed_seq"""
         series_seq = transformed_seq
+        self._logger.setLevel(logging.INFO if verbose else logging.ERROR)
         if self.scaler != None:
             self.scaler.set_n_jobs(n_jobs)
             self._logger.info(f"Inversing darts scaler: {self.scaler.name}")
+            self.scaler.set_verbose(verbose)
             series_seq = self.scaler.inverse_transform(series_seq)
 
         if self.used_diff:
@@ -126,6 +128,7 @@ class DatasetTransformer:
             last_values = self.get_last_historical_value_seq(series_seq, self.before_smoothed.series)
             series_seq = inverse_smooth_seq(last_values, series_seq, n_jobs=n_jobs)
 
+        self._logger.setLevel(logging.INFO)
         return series_seq
 
     def get_last_historical_value_seq(

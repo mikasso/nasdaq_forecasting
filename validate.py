@@ -19,48 +19,47 @@ from darts.utils.data.inference_dataset import (
     PastCovariatesInferenceDataset,
 )
 from darts import concatenate
-
-from view_results import visualize_predictions
-
-logging.basicConfig(level=logging.INFO)
-LOGGER = logging.getLogger(name="eval")
-
 from torch.utils.data import Dataset, DataLoader
+import warnings
+
+from utils import create_folder
+
+
+warnings.simplefilter(action="ignore", category=FutureWarning)
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger(name="predict")
 
 
 def _predict_step(self, val_batch, batch_idx) -> torch.Tensor:
     """performs predict step hacky"""
-    output = self._produce_train_output(val_batch[:-1])
+    output = self._produce_train_output(val_batch[:-1])  # why [:-1]
     return output
-
-
-def save_predictions(predictions: List[TimeSeries], tickers: List[str], model_name: str):
-    for predicted, ticker in zip(predictions, tickers):
-        df = predicted.pd_dataframe()
-        df.to_csv(f"results/{model_name}/predicted_{ticker}.csv")
 
 
 def main(config=CONST.MODEL_CONFIG):
     torch.set_float32_matmul_precision("medium")
     logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.WARNING)
     logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.WARNING)
-    ds = load_datasets()
 
-    model = BlockRNNModel.load_from_checkpoint(model_name="GRU_O7", best=True)
+    model = BlockRNNModel.load_from_checkpoint(model_name=config.model_name, best=True)
     model.model.set_predict_parameters(1, 1, 1, 128, 4)
     model.trainer = model._init_trainer(model.trainer_params)
 
-    test_input_start = ds.transformed.test_idx - model.input_chunk_length - model.output_chunk_length + 1
-    test_data = ds.transformed.slice(test_input_start)
-    test_covariates = ds.covariates.slice(test_input_start)
-    val_dataset = model._build_train_dataset(
+    LOGGER.info("Preparing test set")
+    ds = load_datasets()
+    test_input_start = ds.transformed.test_idx - model.input_chunk_length
+    test_data = ds.transformed.slice(start=test_input_start)
+    test_covariates = ds.covariates.slice(start=test_input_start)
+
+    # it returns reversed dataset
+    test_dataset = model._build_train_dataset(
         target=test_data,
         past_covariates=test_covariates,
         future_covariates=None,
         max_samples_per_ts=None,
     )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset,
+    test_dataloader = torch.utils.data.DataLoader(
+        test_dataset,
         batch_size=model.batch_size,
         shuffle=False,
         num_workers=4,
@@ -69,55 +68,49 @@ def main(config=CONST.MODEL_CONFIG):
         collate_fn=model._batch_collate_fn,
     )
 
-    # Hack model so it can predict as its suppose to ;)
+    LOGGER.info("Running model for prediction")
     model.model.predict_step = types.MethodType(_predict_step, model.model)
+    predict = model.trainer.predict(model=model.model, dataloaders=test_dataloader)
 
-    predict = model.trainer.predict(model=model.model, dataloaders=val_dataloader)
+    LOGGER.info("Preparing output data for conversion")
     flatten_tensors = [torch.flatten(tensor) for tensor in predict]
-    output_tensor = torch.cat(flatten_tensors)
+    flatten_tensor = torch.cat(flatten_tensors)
 
-    tensors_by_horizon = []
-    for i in range(0, model.output_chunk_length):
-        tensor = output_tensor[i :: model.output_chunk_length]
-        tensors_by_horizon.append(tensor)
-    # DEBUG this shit and then refactor, should work for both o1, o3, o5
-    timeseries_seq_by_horizon = []
-    for horizon, tensor in enumerate(tensors_by_horizon):
-        results = []
-        for idx, series in enumerate(ds.original.test):
-            steps = len(series)
-            start = idx * steps
-            end = start + steps
-            values = tensor[start:end].numpy()
-            start_date = series[horizon].start_time()
-            times = pd.date_range(start=start_date, periods=steps, freq=series.freq)
+    LOGGER.info("Spliting all predicted tensor by series idx")
+    tensors_by_series = []
+    series_count = len(ds.original.test)
+    steps = len(flatten_tensor) // series_count
+    for idx, series in enumerate(ds.original.test):
+        start = idx * steps
+        end = (idx + 1) * steps
+        values = flatten_tensor[start:end].flip([-1])
+        tensors_by_series.append(values)
+
+    LOGGER.info("Building timeseries predictions for each series idx")
+    horizon = model.output_chunk_length
+    predictions_by_series = []
+    for tensor, series in zip(tensors_by_series, ds.original.test):
+        grouped_tensor = [tensor[i : i + horizon] for i in range(0, len(tensor), horizon)]
+        predictions = []
+        for idx, values in enumerate(grouped_tensor):
+            start_date = series[idx].start_time()
+            times = pd.date_range(start=start_date, periods=horizon, freq=series.freq)
             result = TimeSeries.from_times_and_values(times, values)
-            results.append(result)
+            predictions.append(result)
+        predictions_by_series.append(predictions)
 
-        inversed_results = ds.transformer.inverse(results)
-        timeseries_seq_by_horizon.append(inversed_results)
+    LOGGER.info("inversing transformation")
+    predictions_len = len(predictions_by_series[0])
+    inversed_prediction_by_step = []
+    for idx in range(predictions_len):  # could be done in parallel but ds.transformer has to be shared somehow
+        input_series = [predictions_by_series[series_idx][idx] for series_idx in range(0, series_count)]
+        inversed_prediction_by_step.append(ds.transformer.inverse(input_series, n_jobs=1, verbose=False))
 
-    joblib.dump(timeseries_seq_by_horizon, "results.temp")
-
-
-def display(timeseries_seq_by_horizon: List[List[TimeSeries]], ds: Datasets):
-    for horizon, series_seq in enumerate(timeseries_seq_by_horizon):
-        visualize_predictions(ds.original, series_seq, model_name="GRU_O7", title_prefix=f"h={horizon}")
+    LOGGER.info("Saving results")
+    inversed_by_series_idx = [[series[i] for series in inversed_prediction_by_step] for i in range(series_count)]
+    create_folder(config.result_path, delete_if_exists=True)
+    joblib.dump(inversed_by_series_idx, f"{config.result_path}/{config.model_name}.pkl")
 
 
 if __name__ == "__main__":
-    saved = False
-    if not saved:
-        main()
-    ds = load_datasets()
-    timeseries_seq_by_horizon = joblib.load("results.temp")
-    display(timeseries_seq_by_horizon, ds)
-
-
-# jesli trzeba policzyc tylko blad to
-# 1 2 3 4
-#   1 2 3 4
-#     1 2 3 4
-#       1 2 3 4
-# to mozna wziac 4 series skladajace sie z tylko 1 lub tylko 2 lub tylko 3 ..
-# i policzyc blad
+    main()

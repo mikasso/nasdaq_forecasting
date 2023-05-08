@@ -15,88 +15,66 @@ from darts.utils.timeseries_generation import datetime_attribute_timeseries
 from darts.utils.likelihood_models import QuantileRegression
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateFinder
 from torchmetrics import MeanAbsolutePercentageError, MeanSquaredError
-from utils import read_csv_ts
+from LossLogger import LossLogger
+from utils import read_csv_ts, visualize_history
 import const as CONST
 from const import FEATURES
 import darts
 
+import logging
+import torch
+from torchmetrics import MeanSquaredError
+from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
+from darts.models import BlockRNNModel
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
+import const as CONST
+from train import train_model
+from utils import assert_pytorch_is_using_gpu
+from const import ModelConfig
 
-def build_tft_model(window, horizon):
-    my_stopper = EarlyStopping(
-        monitor="val_loss",
-        patience=5,
-        min_delta=0.01,
-        mode="min",
-    )
-    return TFTModel(
-        input_chunk_length=window,
-        output_chunk_length=horizon,
-        hidden_size=30,
-        lstm_layers=16,
+
+logging.basicConfig(level=logging.INFO)
+LOGGER = logging.getLogger(name="rnn_models")
+
+
+def main(config: ModelConfig):
+    loss_logger = LossLogger()
+    model = TFTModel(
+        hidden_size=16,
+        lstm_layers=1,
         batch_size=128,
-        n_epochs=100,  # TODO change it
-        dropout=0.2,
-        save_checkpoints=True,
-        show_warnings=True,
-        model_name="run-tft",
-        work_dir="tft",
-        log_tensorboard="tft_logs",
-        torch_metrics=MeanAbsolutePercentageError(),
-        loss_fn=MeanSquaredError(),
-        pl_trainer_kwargs={"callbacks": [my_stopper], "accelerator": "gpu", "devices": [0]},
-        add_encoders={
-            "cyclic": {"future": ["month"]},
-            "datetime_attribute": {"future": ["hour", "dayofweek"]},
-            "position": {"past": ["relative"], "future": ["relative"]},
-            "transformer": Scaler(),
-        },
-        add_relative_index=False,
-        optimizer_kwargs={"lr": 1e-3},
+        n_epochs=2,
+        optimizer_kwargs={"lr": 1e-4},
+        model_name=config.model_name,
+        log_tensorboard=True,
         random_state=42,
-        force_reset=True,  # replace
+        input_chunk_length=512,
+        output_chunk_length=config.output_len,
+        force_reset=True,
+        save_checkpoints=True,
+        lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
+        add_relative_index=True,
+        pl_trainer_kwargs={
+            "callbacks": [
+                EarlyStopping(
+                    monitor="val_loss",
+                    patience=25,
+                    min_delta=0.000001,
+                    mode="min",
+                ),
+                LearningRateMonitor(logging_interval="epoch"),
+                loss_logger,
+            ],
+            "accelerator": "gpu",
+            "devices": [0],
+        },
+        loss_fn=MeanSquaredError(),
+        show_warnings=True,
     )
-
-
-FREQ = "H"
-SPLIT_TRAIN = 0.8
-SPLIT_VAL = 0.1
-SPLIT_TEST = 0.1
-
-
-def eval_model(result, test, future):
-    pred_series = result.predict(n=len(test))
-    plt.figure(figsize=(8, 5))
-    series_transformed[future].plot(label="actual")
-    pred_series[future].plot(label="forecast")
-    plt.title("MAPE: {:.2f}%".format(mape(pred_series, test)))
-    plt.legend()
+    trained_model = train_model(model)
+    visualize_history(config, loss_logger.train_loss, loss_logger.val_loss)
+    return trained_model
 
 
 if __name__ == "__main__":
-    assert torch.cuda.is_available()
-    df = read_csv_ts(f"{CONST.PATHS.MERGED}/AEM.csv")
-    series = TimeSeries.from_dataframe(df)
-    series = series.astype(np.float32)
-
-    # Create training and validation sets:
-    training_cutoff = pd.Timestamp(df.iloc[int(SPLIT_TRAIN * len(df))].name)
-    val_cutoff = pd.Timestamp(df.iloc[int((SPLIT_TRAIN + SPLIT_VAL) * len(df))].name)
-    train, val = series.split_before(training_cutoff)
-    val, test = val.split_before(val_cutoff)
-    # Normalize the time series (note: we avoid fitting the transformer on the validation set)
-    transformer = Scaler()
-    train_transformed = transformer.fit_transform(train)
-    val_transformed = transformer.transform(val)
-    test_transformed = transformer.transform(test)
-    series_transformed = transformer.transform(series)
-
-    model = build_tft_model(60, 1)
-    result = model.fit(series=train_transformed, val_series=val_transformed, num_loader_workers=4, verbose=True)
-
-    pred_series = result.predict(n=len(test_transformed) * 2)
-    plt.figure(figsize=(8, 5))
-    series_transformed["price"].plot(label="actual")
-    pred_series["price"].plot(label="forecast")
-    plt.title("MAPE: {:.2f}%".format(mape(pred_series, test_transformed)))
-    plt.legend()
-    plt.show()
+    main(CONST.MODEL_CONFIG)

@@ -1,8 +1,11 @@
 from enum import Enum
 import pandas as pd
 import pandas_market_calendars as mcal
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, ModelSummary
 
 from pandas.tseries.holiday import USFederalHolidayCalendar
+
+from LossLogger import LossLogger
 
 
 class ModelTypes(Enum):
@@ -21,6 +24,10 @@ class ModelConfig:
         self.model_name = f"{model_type}_out_{output_len}" if model_name == None else model_name
         self.model_type = model_type
         self.output_len = output_len
+
+    @property
+    def result_path(self) -> str:
+        return f"{PATHS.RESULTS}/{self.model_name}"
 
 
 class PATHS:
@@ -66,7 +73,7 @@ USE_SMOOTHING = True
 USE_SCALER = True
 
 
-MODEL_CONFIG = ModelConfig(ModelTypes.gru, 1, "GRU_O7")
+MODEL_CONFIG = ModelConfig(ModelTypes.lstm, 5, "BlockRNNModel_LSTM_O5_2")
 
 saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]
 

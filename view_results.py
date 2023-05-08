@@ -1,5 +1,9 @@
 import logging
 from typing import List
+
+from joblib import Parallel, delayed
+import joblib
+import numpy as np
 from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
 import const as CONST
 import matplotlib.pyplot as plt
@@ -7,80 +11,79 @@ from darts.metrics import mape
 from darts import TimeSeries
 import pandas as pd
 import const as CONST
+import warnings
 
-from utils import read_csv_ts
+warnings.simplefilter(action="ignore", category=FutureWarning)
+
+from darts import concatenate
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="view_results")
 
 
-def load_predictions(model_name: str, tickers: List[str]) -> List[TimeSeries]:
-    ts_seq = []
-    for ticker in tickers:
-        df = read_csv_ts(f"{CONST.PATHS.RESULTS}/{model_name}/predicted_{ticker}.csv", time_key="time")
-        ts = TimeSeries.from_dataframe(df)
-        ts_seq.append(ts)
-    logging.info(f"Loaded predictions for {len(tickers)}.")
-    return ts_seq
-
-
-def plot_series(series: TimeSeries, predicted: TimeSeries, offset=0):
-    y = series.univariate_values()[offset:]
-
-    index_len = series.time_index.size
-    x = range(offset, index_len)
-    plt.plot(x, y, label="original")
-
-    y = predicted.univariate_values()
-    x = range(index_len - predicted.time_index.size, index_len)
-    plt.plot(x, y, label="predicted")
-
-
-def visualize_predictions(
-    original: SeqDataset, predictions: List[TimeSeries], model_name: str, title_prefix="", save=True
-):
-    for idx, ticker in enumerate(original.used_tickers):
-        predicted = predictions[idx]
-        expected = original.test[idx]
-        series = original.series[idx]
-        mape_error = mape(predicted, expected)
-        plt.figure(ticker, figsize=(8, 5))
-        series.plot(label="original")
-        predicted.plot(label="predicted")
-        # plot_series(series, predicted, offset=27400)
-        title = f"{ticker} {title_prefix}" + " - MAPE: {:.2f}%".format(mape_error)
-        plt.title(title)
-        plt.legend()
-        fig1 = plt.gcf()
-        if save:
-            fig1.savefig(f"results/{model_name}/{ticker}.svg", format="svg")
-        plt.show()
-
-
-def get_mape_scores(original: SeqDataset, predictions: List[TimeSeries]) -> pd.Series:
-    scores = {}
-    for idx, ticker in enumerate(original.used_tickers):
-        predicted = predictions[idx]
-        expected = original.test[idx]
-        score = mape(predicted, expected)
-        scores[ticker] = score
-
-    df_score = pd.Series(scores)
-    average = df_score.sum() / len(df_score)
-    df_score["avg"] = average
-    return df_score
-
-
-def main(model_name: str):
+def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG):
     ds = load_datasets()
-    predictions = load_predictions(model_name=model_name, tickers=ds.original.used_tickers)
-    model_scores = get_mape_scores(ds.original, predictions)
-    baseline_scores = pd.read_csv(f"{CONST.PATHS.RESULTS}/baseline/score.csv")
-    compare_df = {model_name: model_scores, "baseline": baseline_scores}
-    print(compare_df)
-    model_scores.to_csv(f"{CONST.PATHS.RESULTS}/{model_name}/score.csv")
-    visualize_predictions(ds.original, predictions, model_name=model_name, save=False)
+    predictions = load_results(config)
+
+    LOGGER.info("Calculating mape errors")
+    model_scores = Parallel(n_jobs=-1)(
+        delayed(calculate_mapes)(prediction, original) for prediction, original in zip(predictions, ds.original.series)
+    )
+
+    LOGGER.info("Saving mape errors")
+    df = pd.DataFrame.from_dict(dict(zip(ds.original.used_tickers, model_scores)))
+    df.to_csv(f"{config.result_path}/mape.csv")
+    df.describe().to_csv(f"{config.result_path}/described_mape.csv")
+
+    LOGGER.info("Rendering charts")
+    for prediction, original, ticker in zip(predictions, ds.original.series, ds.original.used_tickers):
+        # if config.output_len == 1:
+        #    prediction = [concatenate(prediction, axis=1)]  # verify it
+        display_multi_horizon(prediction, original, ticker, save=True, path=config.result_path)
+    plt.show()
+
+
+def display_multi_horizon(
+    predicted_timeseries: List[TimeSeries], original: TimeSeries, ticker: str, save: bool, path: str
+):
+    """Display predictions with horizon > 1 for single original timeseries"""
+    plt.figure(ticker)
+    plt.plot(range(len(original)), original.values(), color="black", label="original")
+    colors = ["blue", "green", "red", "pink", "orange", "brown", "gray"]
+    for idx, predicted in enumerate(predicted_timeseries):
+        previous_point_idx = original.get_index_at_point(predicted.start_time()) - 1
+        previous_point = original[previous_point_idx]
+        y = np.insert(predicted.values(), 0, previous_point.values())
+        x = range(previous_point_idx, previous_point_idx + len(predicted) + 1)
+        plt.plot(x, y, color=colors[idx % 7])
+
+    plt.title(ticker)
+    plt.xlabel("Timestep")
+    plt.ylabel("Price [$]")
+    plt.legend(loc="upper left")
+    fig1 = plt.gcf()
+    if save:
+        fig1.savefig(f"{path}/plot_{ticker}.svg", format="svg")
+        joblib.dump(fig1, f"{path}/plot_{ticker}.pkl")
+    plt.show(block=False)
+
+
+def calculate_mapes(predicted_timeseries: List[TimeSeries], original: TimeSeries) -> np.ndarray:
+    mapes = []
+    original_values = original.values()
+    for idx, predicted in enumerate(predicted_timeseries):
+        # err = mape(original, predicted)
+        y_true = original_values[idx : idx + len(predicted)]
+        y_hat = predicted.values()
+        err = 100.0 * np.mean(np.abs((y_true - y_hat) / y_true))
+        mapes.append(err)
+        print(f"Progress {idx}/{len(predicted_timeseries)}")
+    return np.array(mapes)
+
+
+def load_results(config: CONST.ModelConfig) -> List[List[TimeSeries]]:
+    return joblib.load(f"{config.result_path}/{config.model_name}.pkl")
 
 
 if __name__ == "__main__":
-    main(CONST.MODEL_NAME)
+    main()
