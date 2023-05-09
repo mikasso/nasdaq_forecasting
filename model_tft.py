@@ -40,35 +40,23 @@ LOGGER = logging.getLogger(name="rnn_models")
 def main(config: ModelConfig):
     loss_logger = LossLogger()
     model = TFTModel(
+        batch_size=CONST.SHARED_CONFIG.BATCH_SIZE,
+        n_epochs=CONST.SHARED_CONFIG.EPOCHS,
+        input_chunk_length=CONST.SHARED_CONFIG.INPUT_LEN,
+        pl_trainer_kwargs=CONST.SHARED_CONFIG.get_pl_trainer_kwargs([loss_logger]),
+        optimizer_kwargs=CONST.SHARED_CONFIG.OPTIMIZER_KWARGS,
+        dropout=CONST.SHARED_CONFIG.DROPOUT,
+        model_name=config.model_name,
+        output_chunk_length=config.output_len,
         hidden_size=16,
         lstm_layers=1,
-        batch_size=128,
-        n_epochs=2,
-        optimizer_kwargs={"lr": 1e-4},
-        model_name=config.model_name,
-        log_tensorboard=True,
         random_state=42,
-        input_chunk_length=512,
-        output_chunk_length=config.output_len,
+        lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
+        loss_fn=MeanSquaredError(),
+        log_tensorboard=True,
         force_reset=True,
         save_checkpoints=True,
-        lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
         add_relative_index=True,
-        pl_trainer_kwargs={
-            "callbacks": [
-                EarlyStopping(
-                    monitor="val_loss",
-                    patience=25,
-                    min_delta=0.000001,
-                    mode="min",
-                ),
-                LearningRateMonitor(logging_interval="epoch"),
-                loss_logger,
-            ],
-            "accelerator": "gpu",
-            "devices": [0],
-        },
-        loss_fn=MeanSquaredError(),
         show_warnings=True,
     )
     trained_model = train_model(model)

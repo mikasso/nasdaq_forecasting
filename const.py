@@ -1,4 +1,5 @@
 from enum import Enum
+from typing import List
 import pandas as pd
 import pandas_market_calendars as mcal
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, ModelSummary
@@ -46,6 +47,32 @@ class FEATURES:
     GOLD_PRICE = "gold_price"
 
 
+class SHARED_CONFIG:
+    INPUT_LEN = 512
+    DROPOUT = 0
+    EPOCHS = 2500
+    BATCH_SIZE = 128
+    SHOW_WARNINGS = True
+    OPTIMIZER_KWARGS = {"lr": 1e-4}
+
+    @staticmethod
+    def get_pl_trainer_kwargs(additional_callbacks: List):
+        return {
+            "callbacks": [
+                EarlyStopping(
+                    monitor="val_loss",
+                    patience=25,
+                    min_delta=0.000001,
+                    mode="min",
+                ),
+                LearningRateMonitor(logging_interval="epoch"),
+                *additional_callbacks,
+            ],
+            "accelerator": "gpu",
+            "devices": [0],
+        }
+
+
 FREQ = "1H"
 calendar = USFederalHolidayCalendar()
 
@@ -74,6 +101,7 @@ USE_SCALER = True
 
 
 MODEL_CONFIG = ModelConfig(ModelTypes.lstm, 5, "BlockRNNModel_LSTM_O5_2")
+
 
 saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]
 
