@@ -21,10 +21,11 @@ RNN_NETWORKS = [ModelTypes.rnn, ModelTypes.lstm, ModelTypes.gru]
 
 
 class ModelConfig:
-    def __init__(self, model_type: ModelTypes, output_len: int, model_name=None) -> None:
-        self.model_name = f"{model_type}_out_{output_len}" if model_name == None else model_name
+    def __init__(self, model_type: ModelTypes, output_len: int, model_name=None, hidden_state=256) -> None:
+        self.model_name = f"{model_type.value}_out_{output_len}" if model_name == None else model_name
         self.model_type = model_type
         self.output_len = output_len
+        self.hidden_state = hidden_state
 
     @property
     def result_path(self) -> str:
@@ -48,10 +49,10 @@ class FEATURES:
 
 
 class SHARED_CONFIG:
-    INPUT_LEN = 512
-    DROPOUT = 0
+    INPUT_LEN = 256
+    DROPOUT = 0.2
     EPOCHS = 2500
-    BATCH_SIZE = 128
+    BATCH_SIZE = 64
     SHOW_WARNINGS = True
     OPTIMIZER_KWARGS = {"lr": 1e-4}
 
@@ -100,41 +101,7 @@ USE_SMOOTHING = True
 USE_SCALER = True
 
 
-MODEL_CONFIG = ModelConfig(ModelTypes.lstm, 5, "BlockRNNModel_LSTM_O5_2")
+MODEL_CONFIG = ModelConfig(ModelTypes.gru, 1, "TestModel", hidden_state=110)
 
 
 saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]
-
-
-# BlockRNNModel_LSTM_O5_2
-#  model = BlockRNNModel(
-#         model="LSTM",
-#         hidden_dim=128,
-#         n_rnn_layers=2,
-#         batch_size=64,
-#         n_epochs=1 if CONST.SANITY_CHECK else 2500,
-#         optimizer_kwargs={"lr": 1e-4},
-#         model_name=CONST.MODEL_NAME,
-#         log_tensorboard=True,
-#         random_state=42,
-#         input_chunk_length=512,
-#         output_chunk_length=5,
-#         force_reset=True,
-#         save_checkpoints=True,
-#         lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
-#         pl_trainer_kwargs={
-#             "callbacks": [
-#                 EarlyStopping(
-#                     monitor="val_loss",
-#                     patience=20,
-#                     min_delta=0.000001,
-#                     mode="min",
-#                 ),
-#                 LearningRateMonitor(logging_interval="epoch"),
-#             ],
-#             "accelerator": "gpu",
-#             "devices": [0],
-#         },
-#         loss_fn=MeanSquaredError(),
-#         show_warnings=True,
-#     )

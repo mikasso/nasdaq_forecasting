@@ -9,7 +9,6 @@ import const as CONST
 from train import train_model
 from utils import assert_pytorch_is_using_gpu, visualize_history
 from const import ModelConfig
-from torch.utils.tensorboard import SummaryWriter
 
 
 def main(config: ModelConfig):
@@ -23,7 +22,11 @@ def main(config: ModelConfig):
         dropout=CONST.SHARED_CONFIG.DROPOUT,
         model_name=config.model_name,
         output_chunk_length=config.output_len,
-        random_state=42,
+        d_model=config.hidden_state,
+        nhead=8,
+        num_decoder_layers=5,
+        num_encoder_layers=6,
+        dim_feedforward=512,
         lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
         loss_fn=MeanSquaredError(),
         log_tensorboard=True,

@@ -178,7 +178,10 @@ class SeqDataset(DatasetAccesor):
     ):
         if sanity_check == True:
             LOGGER.info("Sanity check dataset")
-            length = 10000
+            length = (
+                int(CONST.SHARED_CONFIG.INPUT_LEN / (CONST.TRAINVAL_TEST_SPLIT_START - CONST.TRAIN_VAL_SPLIT_START))
+                + 14
+            )
             used_tickers = [use_tickers[0]]
         else:
             LOGGER.info(f"Loading full data - assuming length f{use_tickers[0]}.csv")
@@ -357,10 +360,12 @@ def test_smoothing_on_series(series: TimeSeries):
 
 
 if __name__ == "__main__":
-    Datasets.build_and_save()
-    ds = load_datasets()
-    test_datasets(ds)
-    test_diff(ds)
-    test_smoothing_on_series(ds.original.series[0])
-    test_smoothing(ds)
-    test_transforming(ds)
+    Datasets.build_and_save(CONST.SANITY_CHECK)
+    ds = load_datasets(CONST.SANITY_CHECK)
+
+    if CONST.SANITY_CHECK == False:
+        test_datasets(ds)
+        test_diff(ds)
+        test_smoothing_on_series(ds.original.series[0])
+        test_smoothing(ds)
+        test_transforming(ds)

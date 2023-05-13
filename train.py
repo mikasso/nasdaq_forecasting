@@ -16,7 +16,7 @@ def train_model(model):
     torch.set_float32_matmul_precision("medium")
     assert_pytorch_is_using_gpu()
     LOGGER.info("Loading dataset")
-    ds = load_datasets()
+    ds = load_datasets(CONST.SANITY_CHECK)
     LOGGER.info(f"Starting training {model.model_name}")
     model = model.fit(
         ds.transformed.train,
@@ -24,7 +24,7 @@ def train_model(model):
         val_series=ds.transformed.val,
         val_past_covariates=ds.covariates.val,
         verbose=True,
-        num_loader_workers=4,
+        num_loader_workers=1 if CONST.SANITY_CHECK else 4,
     )
     LOGGER.info(f"Finished training of {model.model_name}")
     return model

@@ -26,20 +26,18 @@ def dispatch_model_training(config: ModelConfig):
 
 
 if __name__ == "__main__":
+    LOGGER.info("Starting models run")
     models = [
-        # ModelConfig(ModelTypes.rnn, 1),
-        # ModelConfig(ModelTypes.gru, 1),
-        # ModelConfig(ModelTypes.lstm, 1),
-        # ModelConfig(ModelTypes.rnn, 7),
-        # ModelConfig(ModelTypes.gru, 7),
-        # ModelConfig(ModelTypes.lstm, 7),
-        # ModelConfig(ModelTypes.transformer, 1),
-        ModelConfig(ModelTypes.tft, 1),
-        # ModelConfig(ModelTypes.rnn, 7),
-        # ModelConfig(ModelTypes.gru, 7),
-        # ModelConfig(ModelTypes.lstm, 7),
-        # ModelConfig(ModelTypes.transformer, 7),
-        # ModelConfig(ModelTypes.tft, 7),
+        ModelConfig(ModelTypes.rnn, 1, 256),
+        ModelConfig(ModelTypes.gru, 1, 256),
+        ModelConfig(ModelTypes.lstm, 1, 222),
+        ModelConfig(ModelTypes.transformer, 1, 64),
+        ModelConfig(ModelTypes.tft, 1, 110),
+        ModelConfig(ModelTypes.rnn, 7, 256),
+        ModelConfig(ModelTypes.gru, 7, 256),
+        ModelConfig(ModelTypes.lstm, 7, 222),
+        ModelConfig(ModelTypes.transformer, 7, 64),
+        ModelConfig(ModelTypes.tft, 7, 110),
     ]
 
     for model_config in models:
