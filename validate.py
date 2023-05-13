@@ -108,7 +108,7 @@ def main(config=CONST.MODEL_CONFIG):
 
     LOGGER.info("Saving results")
     inversed_by_series_idx = [[series[i] for series in inversed_prediction_by_step] for i in range(series_count)]
-    create_folder(config.result_path, delete_if_exists=True)
+
     joblib.dump(inversed_by_series_idx, f"{config.result_path}/{config.model_name}.pkl")
 
 
