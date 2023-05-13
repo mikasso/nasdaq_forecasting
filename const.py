@@ -22,7 +22,7 @@ RNN_NETWORKS = [ModelTypes.rnn, ModelTypes.lstm, ModelTypes.gru]
 
 class ModelConfig:
     def __init__(self, model_type: ModelTypes, output_len: int, model_name=None, hidden_state=256) -> None:
-        self.model_name = f"{model_type.value}_out_{output_len}" if model_name == None else model_name
+        self.model_name = f"{model_type}_out_{output_len}" if model_name == None else model_name
         self.model_type = model_type
         self.output_len = output_len
         self.hidden_state = hidden_state
