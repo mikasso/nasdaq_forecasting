@@ -24,10 +24,14 @@ LOGGER = logging.getLogger(name="view_results")
 def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG):
     ds = load_datasets()
     predictions = load_results(config)
+    for prediction, ticker in zip(predictions, ds.original.used_tickers):
+        if config.output_len == 1:
+            result = concatenate(prediction, 0)
+            result.to_csv(f"{config.result_path}/{ticker}.csv")
 
     LOGGER.info("Calculating mape errors")
     model_scores = Parallel(n_jobs=-1)(
-        delayed(calculate_mapes)(prediction, original) for prediction, original in zip(predictions, ds.original.series)
+        delayed(calculate_mapes)(prediction, original) for prediction, original in zip(predictions, ds.original.test)
     )
 
     LOGGER.info("Saving mape errors")
@@ -37,25 +41,28 @@ def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG):
 
     LOGGER.info("Rendering charts")
     for prediction, original, ticker in zip(predictions, ds.original.series, ds.original.used_tickers):
-        # if config.output_len == 1:
-        #    prediction = [concatenate(prediction, axis=1)]  # verify it
-        display_multi_horizon(prediction, original, ticker, save=True, path=config.result_path)
+        display_predictions(prediction, original, ticker, save=True, path=config.result_path)
     plt.show()
 
 
-def display_multi_horizon(
+def display_predictions(
     predicted_timeseries: List[TimeSeries], original: TimeSeries, ticker: str, save: bool, path: str
 ):
-    """Display predictions with horizon > 1 for single original timeseries"""
+    """Display predictions for single original timeseries"""
     plt.figure(ticker)
     plt.plot(range(len(original)), original.values(), color="black", label="original")
-    colors = ["blue", "green", "red", "pink", "orange", "brown", "gray"]
-    for idx, predicted in enumerate(predicted_timeseries):
-        previous_point_idx = original.get_index_at_point(predicted.start_time()) - 1
-        previous_point = original[previous_point_idx]
-        y = np.insert(predicted.values(), 0, previous_point.values())
-        x = range(previous_point_idx, previous_point_idx + len(predicted) + 1)
-        plt.plot(x, y, color=colors[idx % 7])
+
+    if len(predicted_timeseries[0]) == 1:
+        single = concatenate(predicted_timeseries, 0)
+        plt.plot(range(len(original) - len(single), len(original)), single.values(), color="orange", label="predicted")
+    else:
+        colors = ["blue", "green", "red", "pink", "orange", "brown", "gray"]
+        for idx, predicted in enumerate(predicted_timeseries):
+            previous_point_idx = original.get_index_at_point(predicted.start_time()) - 1
+            previous_point = original[previous_point_idx]
+            y = np.insert(predicted.values(), 0, previous_point.values())
+            x = range(previous_point_idx, previous_point_idx + len(predicted) + 1)
+            plt.plot(x, y, color=colors[idx % len(colors)])
 
     plt.title(ticker)
     plt.xlabel("Timestep")

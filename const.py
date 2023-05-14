@@ -52,7 +52,7 @@ class SHARED_CONFIG:
     INPUT_LEN = 256
     DROPOUT = 0.2
     EPOCHS = 2500
-    BATCH_SIZE = 64
+    BATCH_SIZE = 256
     SHOW_WARNINGS = True
     OPTIMIZER_KWARGS = {"lr": 1e-4}
 
@@ -62,8 +62,8 @@ class SHARED_CONFIG:
             "callbacks": [
                 EarlyStopping(
                     monitor="val_loss",
-                    patience=25,
-                    min_delta=0.000001,
+                    patience=20,
+                    min_delta=0.0001,
                     mode="min",
                 ),
                 LearningRateMonitor(logging_interval="epoch"),
@@ -101,7 +101,9 @@ USE_SMOOTHING = True
 USE_SCALER = True
 
 
-MODEL_CONFIG = ModelConfig(ModelTypes.gru, 1, "TestModel", hidden_state=110)
+MODEL_CONFIG = ModelConfig(
+    ModelTypes.lstm, 1, hidden_state=32
+)  #  ModelConfig(ModelTypes.gru, 1, "TestModel", hidden_state=110)
 
 
 saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]
