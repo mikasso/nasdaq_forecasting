@@ -3,7 +3,7 @@ import pandas as pd
 from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
 import const as CONST
 
-baseline_config = CONST.ModelConfig(CONST.ModelTypes.rnn, output_len=1, model_name="baseline", hidden_state=0)
+BASELINE_CONFIG = CONST.ModelConfig(CONST.ModelTypes.rnn, output_len=1, model_name="baseline", hidden_state=0)
 
 
 def get_baseline_predictions(original: SeqDataset):
