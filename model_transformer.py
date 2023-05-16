@@ -8,7 +8,8 @@ from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 import const as CONST
 from train import train_model
 from utils import assert_pytorch_is_using_gpu, visualize_history
-from const import ModelConfig
+from const import ModelConfig, ModelTypes
+from darts.models.forecasting.torch_forecasting_model import TorchForecastingModel
 
 
 def main(config: ModelConfig):

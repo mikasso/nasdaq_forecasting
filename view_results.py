@@ -21,7 +21,7 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="view_results")
 
 
-def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG):
+def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG, show=True):
     ds = load_datasets()
     predictions = load_results(config)
     for prediction, ticker in zip(predictions, ds.original.used_tickers):
@@ -42,7 +42,7 @@ def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG):
     LOGGER.info("Rendering charts")
     for prediction, original, ticker in zip(predictions, ds.original.series, ds.original.used_tickers):
         display_predictions(prediction, original, ticker, save=True, path=config.result_path)
-    plt.show()
+    plt.show(block=show)
 
 
 def display_predictions(

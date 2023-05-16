@@ -15,6 +15,7 @@ import pandas as pd
 from darts import TimeSeries
 import logging
 from darts.models import BlockRNNModel
+from darts.models.forecasting.torch_forecasting_model import TorchForecastingModel
 from darts.utils.data.inference_dataset import (
     PastCovariatesInferenceDataset,
 )
@@ -41,7 +42,7 @@ def main(config=CONST.MODEL_CONFIG):
     logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.WARNING)
     logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.WARNING)
 
-    model = BlockRNNModel.load_from_checkpoint(model_name=config.model_name, best=True)
+    model = TorchForecastingModel.load_from_checkpoint(model_name=config.model_name, best=True)
     model.model.set_predict_parameters(1, 1, 1, 128, 4)
     model.trainer = model._init_trainer(model.trainer_params)
 

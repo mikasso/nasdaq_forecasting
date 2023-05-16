@@ -13,6 +13,19 @@ from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, l
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Main runner")
 
+MODEL_CONFIGS = [
+    ModelConfig(ModelTypes.rnn, 1, hidden_state=256),
+    ModelConfig(ModelTypes.gru, 1, hidden_state=256),
+    ModelConfig(ModelTypes.lstm, 1, hidden_state=222),
+    ModelConfig(ModelTypes.tft, 1, hidden_state=110),
+    ModelConfig(ModelTypes.transformer, 1, hidden_state=64),
+    # ModelConfig(ModelTypes.rnn, 7, hidden_state=256),
+    # ModelConfig(ModelTypes.gru, 7, hidden_state=256),
+    # ModelConfig(ModelTypes.lstm, 7, hidden_state=222),
+    # ModelConfig(ModelTypes.transformer, 7, hidden_state=64),
+    # ModelConfig(ModelTypes.tft, 7, hidden_state=110),
+]
+
 
 def dispatch_model_training(config: ModelConfig):
     if config.model_type in RNN_NETWORKS:
@@ -27,22 +40,11 @@ def dispatch_model_training(config: ModelConfig):
 
 if __name__ == "__main__":
     LOGGER.info("Starting models run")
-    models = [
-        ModelConfig(ModelTypes.rnn, 1, hidden_state=256),
-        ModelConfig(ModelTypes.gru, 1, hidden_state=256),
-        ModelConfig(ModelTypes.lstm, 1, hidden_state=222),
-        ModelConfig(ModelTypes.transformer, 1, hidden_state=64),
-        ModelConfig(ModelTypes.tft, 1, hidden_state=110),
-        ModelConfig(ModelTypes.rnn, 7, hidden_state=256),
-        ModelConfig(ModelTypes.gru, 7, hidden_state=256),
-        ModelConfig(ModelTypes.lstm, 7, hidden_state=222),
-        ModelConfig(ModelTypes.transformer, 7, hidden_state=64),
-        ModelConfig(ModelTypes.tft, 7, hidden_state=110),
-    ]
 
-    for model_config in models:
-        LOGGER.info(f"Running model: {model_config.model_name}")
-        create_folder(model_config.result_path, delete_if_exists=True)
-        dispatch_model_training(model_config)
-        validate.main(model_config)
-        LOGGER.info(f"Finished running model: {model_config.model_name}")
+    for config in MODEL_CONFIGS:
+        LOGGER.info(f"Running model: {config.model_name}")
+        create_folder(config.result_path, delete_if_exists=True)
+        dispatch_model_training(config)
+        validate.main(config)
+        # view_results.main(model_config, show=False)
+        LOGGER.info(f"Finished running model: {config.model_name}")
