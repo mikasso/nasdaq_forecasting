@@ -20,10 +20,10 @@ MODEL_CONFIGS = [
     # ModelConfig(ModelTypes.tft, 1, hidden_state=110),
     # ModelConfig(ModelTypes.transformer, 1, hidden_state=64),
     # ModelConfig(ModelTypes.rnn, 7, hidden_state=256),
-    # ModelConfig(ModelTypes.gru, 7, hidden_state=256),
-    ModelConfig(ModelTypes.lstm, 7, hidden_state=222),
-    # ModelConfig(ModelTypes.transformer, 7, hidden_state=64),
-    # ModelConfig(ModelTypes.tft, 7, hidden_state=110),
+    ModelConfig(ModelTypes.gru, 7, hidden_state=256),
+    # ModelConfig(ModelTypes.lstm, 7, hidden_state=222),
+    ModelConfig(ModelTypes.transformer, 7, hidden_state=64),
+    ModelConfig(ModelTypes.tft, 7, hidden_state=110),
 ]
 
 

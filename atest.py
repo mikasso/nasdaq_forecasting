@@ -1,3 +1,4 @@
+from functools import cached_property
 from darts import TimeSeries
 from darts.dataprocessing.transformers.scaler import Scaler
 from typing import List, Set
@@ -36,13 +37,9 @@ class Dataset:
         self,
         series: List[TimeSeries],
     ) -> None:
-        self.series = series
-        self.train = slice_for_train_sequence(series)
-        self._verify_sequence(self.train, "train")
-        self.val = slice_for_sequence(series, VAL_DATE, TEST_DATE)
-        self._verify_sequence(self.val, "val")
-        self.test = slice_for_sequence(series, TEST_DATE, None)
-        self._verify_sequence(self.test, "test")
+        series32 = [s.astype(np.float32) for s in series]
+        self.series = series32
+        self._verify_sequence(self.series, "series")
 
     def _verify_sequence(self, seq, seq_name):
         if None in seq:
@@ -50,6 +47,18 @@ class Dataset:
 
     def __len__(self):
         return len(self.series)
+
+    @cached_property
+    def train(self) -> List[TimeSeries]:
+        return slice_for_train_sequence(self.series)
+
+    @cached_property
+    def val(self) -> List[TimeSeries]:
+        return slice_for_sequence(self.series, VAL_DATE, TEST_DATE)
+
+    @cached_property
+    def test(self) -> List[TimeSeries]:
+        return slice_for_sequence(self.series, TEST_DATE, None)
 
     @property
     def train_len(self) -> int:
@@ -120,7 +129,7 @@ def build_timeseries():
 
     for idx, csv_path in enumerate(csv_paths):
         print(f"Progress {csv_path} {idx}/{len(csv_paths)}")
-        df = pd.read_csv(csv_path, index_col="Date").astype(np.float16)
+        df = pd.read_csv(csv_path, index_col="Date")
         df.index = pd.to_datetime(df.index, format="%d-%m-%Y")
         df = df.asfreq(nasdaq_freq)
         if df.isnull().values.any():
@@ -129,7 +138,8 @@ def build_timeseries():
         if len(df) < MIN_LEN:
             print(f"Skipping {csv_path} - too small file")
             continue
-        targets.append(TimeSeries.from_series(df["Adjusted Close"]))
+        target = TimeSeries.from_series(df["Adjusted Close"])
+        targets.append(target)
         cov_df = df.drop(columns=["Adjusted Close"])
         covariate = TimeSeries.from_dataframe(cov_df)
         covariates.append(covariate)
@@ -198,20 +208,20 @@ if __name__ == "__main__":
     # rebuild_datasets()
     ds = joblib.load("temp/ds.pkl")
     print("loaded ds1")
-    # ds_cov = joblib.load("temp/ds_cov.pkl")
-    # print("loaded ds2")
+    ds_cov = joblib.load("temp/ds_cov.pkl")
+    print("loaded ds2")
     loss_logger = LossLogger()
     torch.set_float32_matmul_precision("medium")
     model = BlockRNNModel(
-        batch_size=256,
+        batch_size=128,
         n_epochs=10000,
         input_chunk_length=WINDOW,
         pl_trainer_kwargs={
             "callbacks": [
                 EarlyStopping(
                     monitor="val_loss",
-                    patience=20,
-                    min_delta=0.00001,
+                    patience=10,
+                    min_delta=1e-4,
                     mode="min",
                 ),
                 LearningRateMonitor(logging_interval="epoch"),
@@ -220,13 +230,14 @@ if __name__ == "__main__":
             "accelerator": "gpu",
             "devices": [0],
         },
-        optimizer_kwargs={"lr": 1e-4},
-        dropout=0.2,
+        optimizer_kwargs={"lr": 1e-4, "weight_decay": 1e-5},
+        dropout=0.3,
         model="LSTM",
         model_name="LSTM_other_dataset",
         output_chunk_length=HORIZON,
-        hidden_dim=150,
+        hidden_dim=100,
         n_rnn_layers=3,
+        hidden_fc_sizes=[512, 64],
         lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
         loss_fn=MeanSquaredError(),
         log_tensorboard=True,
@@ -236,11 +247,11 @@ if __name__ == "__main__":
     )
     model.fit(
         ds.train,
-        # past_covariates=ds_cov.train,
+        past_covariates=ds_cov.train,
         val_series=ds.val,
-        # val_past_covariates=ds_cov.val,
+        val_past_covariates=ds_cov.val,
         verbose=True,
-        num_loader_workers=1,
+        num_loader_workers=2,
     )
     visualize_history(
         ModelConfig(ModelTypes.lstm, output_len=1, model_name=model.model_name, hidden_state=100),
