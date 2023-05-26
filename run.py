@@ -14,16 +14,24 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Main runner")
 
 MODEL_CONFIGS = [
-    # ModelConfig(ModelTypes.rnn, 1, hidden_state=256),
-    # ModelConfig(ModelTypes.gru, 1, hidden_state=256),
-    # ModelConfig(ModelTypes.lstm, 1, hidden_state=222),
-    # ModelConfig(ModelTypes.tft, 1, hidden_state=110),
-    # ModelConfig(ModelTypes.transformer, 1, hidden_state=64),
-    # ModelConfig(ModelTypes.rnn, 7, hidden_state=256),
-    ModelConfig(ModelTypes.gru, 7, hidden_state=256),
-    # ModelConfig(ModelTypes.lstm, 7, hidden_state=222),
-    ModelConfig(ModelTypes.transformer, 7, hidden_state=64),
-    ModelConfig(ModelTypes.tft, 7, hidden_state=110),
+    ModelConfig(ModelTypes.rnn, 1, hidden_state=170),  # 147
+    ModelConfig(ModelTypes.gru, 1, hidden_state=100),  # 154
+    ModelConfig(ModelTypes.lstm, 1, hidden_state=85),  #
+    ModelConfig(
+        ModelTypes.tft,
+        1,
+        hidden_state=30,
+    ),
+    ModelConfig(ModelTypes.transformer, 1, hidden_state=32),
+    ModelConfig(ModelTypes.rnn, 7, hidden_state=170),
+    ModelConfig(ModelTypes.gru, 7, hidden_state=100),
+    ModelConfig(ModelTypes.lstm, 7, hidden_state=85),
+    ModelConfig(
+        ModelTypes.tft,
+        7,
+        hidden_state=30,
+    ),
+    ModelConfig(ModelTypes.transformer, 7, hidden_state=32),
 ]
 
 
@@ -46,5 +54,5 @@ if __name__ == "__main__":
         create_folder(config.result_path, delete_if_exists=True)
         dispatch_model_training(config)
         validate.main(config)
-        view_results.main(config, show=False)
+        # view_results.main(config, show=False)
         LOGGER.info(f"Finished running model: {config.model_name}")

@@ -17,6 +17,7 @@ from darts import concatenate
 from darts.metrics import mape
 import matplotlib.pyplot as plt
 from joblib import dump, load
+from darts.dataprocessing.transformers import StaticCovariatesTransformer
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Dataset")
@@ -106,6 +107,10 @@ class DatasetTransformer:
             self._scaler = self.scaler.fit(temp_dataset.train)
             series_seq = self.scaler.transform(temp_dataset.series)
 
+        if series_seq[0].static_covariates is not None:
+            transformer = StaticCovariatesTransformer()
+            series_seq = transformer.fit_transform(series_seq)
+
         return DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
 
     def inverse(self, transformed_seq: List[TimeSeries], n_jobs=-1, verbose=True) -> List[TimeSeries]:
@@ -171,11 +176,7 @@ class SeqDataset(DatasetAccesor):
         return len(self.series)
 
     @staticmethod
-    def load(
-        sanity_check=False,
-        target_feature=CONST.FEATURES.PRICE,
-        use_tickers=CONST.TICKERS,
-    ):
+    def load(sanity_check=False, target_feature=CONST.FEATURES.PRICE, use_tickers=CONST.TICKERS):
         if sanity_check == True:
             LOGGER.info("Sanity check dataset")
             length = (
@@ -184,7 +185,7 @@ class SeqDataset(DatasetAccesor):
             )
             used_tickers = [use_tickers[0]]
         else:
-            LOGGER.info(f"Loading full data - assuming length f{use_tickers[0]}.csv")
+            LOGGER.info(f"Loading full data - assuming length {use_tickers[0]}.csv")
             length = len(read_csv_ts(f"{CONST.PATHS.MERGED}/{use_tickers[0]}.csv"))
             used_tickers = use_tickers
         LOGGER.info(f"Dataset for following feature { target_feature } for tickers { ' '.join(used_tickers) }")
@@ -196,6 +197,9 @@ class SeqDataset(DatasetAccesor):
             LOGGER.info(f"Loading {ticker} timeseries")
             df = read_csv_ts(f"{CONST.PATHS.MERGED}/{ticker}.csv")[:load_up_to][[target_feature]]
             series = TimeSeries.from_dataframe(df).astype(np.float32)
+            if ticker in CONST.TICKERS and target_feature == CONST.FEATURES.PRICE:
+                s = pd.read_csv(f"{CONST.PATHS.MERGED}/static.csv", index_col=0)
+                series = series.with_static_covariates(s.loc[ticker])
             LOGGER.info(f"Finished loading {ticker} timeseries")
             return series
 

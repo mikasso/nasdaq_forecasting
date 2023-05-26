@@ -52,7 +52,7 @@ class SHARED_CONFIG:
     INPUT_LEN = 256
     DROPOUT = 0.2
     EPOCHS = 2500
-    BATCH_SIZE = 64
+    BATCH_SIZE = 512
     SHOW_WARNINGS = True
     OPTIMIZER_KWARGS = {"lr": 1e-4}
 

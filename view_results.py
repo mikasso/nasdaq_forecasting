@@ -12,6 +12,7 @@ from darts import TimeSeries
 import pandas as pd
 import const as CONST
 import warnings
+import os
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
@@ -92,5 +93,12 @@ def load_results(config: CONST.ModelConfig) -> List[List[TimeSeries]]:
     return joblib.load(f"{config.result_path}/{config.model_name}.pkl")
 
 
+def open_charts(path):
+    chart_files = filter(lambda x: x.endswith(".svg"), os.listdir(path))
+    chart_files = map(lambda x: x.replace(".svg", ".pkl"), chart_files)
+    charts = list(map(lambda x: joblib.load(f"{path}/{x}"), chart_files))
+    plt.show()
+
+
 if __name__ == "__main__":
-    main()
+    open_charts("results/ModelTypes.tft_out_1_with_statics")

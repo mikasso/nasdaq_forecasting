@@ -30,7 +30,13 @@ def smooth(series: TimeSeries, alpha=ALPHA):
         else:
             results[idx, 0] = alpha * value + (1 - alpha) * results[idx - 1, 0]
 
-    return TimeSeries.from_times_and_values(series.time_index, results, freq=series.freq, columns=series.components)
+    return TimeSeries.from_times_and_values(
+        series.time_index,
+        results,
+        freq=series.freq,
+        columns=series.components,
+        static_covariates=series.static_covariates,
+    )
 
 
 def inverse_smooth(inital_value: np.number, forecast_transformed: TimeSeries, alpha=ALPHA):
@@ -53,7 +59,7 @@ def inverse_smooth(inital_value: np.number, forecast_transformed: TimeSeries, al
 
 
 def apply_differencing(series_seq: List[TimeSeries]):
-    def process(s):
+    def process(s: TimeSeries):
         s = s.diff(dropna=False)  # keep length of timeseries
         s.values(copy=False)[0, 0] = 0.0
         return s
