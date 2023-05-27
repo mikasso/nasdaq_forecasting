@@ -12,7 +12,20 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="train")
 
 
-def train_model(model):
+def use_half_precision(model: BlockRNNModel, target, past_cov):
+    # TODO  Not working
+    intit_dataset = model._build_train_dataset(
+        target=target, past_covariates=past_cov, future_covariates=None, max_samples_per_ts=None
+    )
+    train_sample = intit_dataset[0]
+    if model.model is None:
+        # Build model, based on the dimensions of the first series in the train set.
+        model.train_sample, model.output_dim = train_sample, train_sample[-1].shape[1]
+        model._init_model(None)
+    model.model.half()
+
+
+def train_model(model: BlockRNNModel):
     torch.set_float32_matmul_precision("medium")
     assert_pytorch_is_using_gpu()
     LOGGER.info("Loading dataset")

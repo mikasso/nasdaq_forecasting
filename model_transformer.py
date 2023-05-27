@@ -10,17 +10,20 @@ from train import train_model
 from utils import assert_pytorch_is_using_gpu, visualize_history
 from const import ModelConfig, ModelTypes
 from darts.models.forecasting.torch_forecasting_model import TorchForecastingModel
+from torch import optim
 
 
 def main(config: ModelConfig):
     loss_logger = LossLogger()
     model = TransformerModel(
-        batch_size=CONST.SHARED_CONFIG.BATCH_SIZE,
+        batch_size=256,
         n_epochs=CONST.SHARED_CONFIG.EPOCHS,
         input_chunk_length=CONST.SHARED_CONFIG.INPUT_LEN,
         pl_trainer_kwargs=CONST.SHARED_CONFIG.get_pl_trainer_kwargs([loss_logger]),
         optimizer_kwargs=CONST.SHARED_CONFIG.OPTIMIZER_KWARGS,
         dropout=CONST.SHARED_CONFIG.DROPOUT,
+        lr_scheduler_kwargs=CONST.SHARED_CONFIG.LR_SCHEDULER_KWARGS,
+        lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
         model_name=config.model_name,
         output_chunk_length=config.output_len,
         d_model=config.hidden_state,
@@ -28,7 +31,6 @@ def main(config: ModelConfig):
         num_decoder_layers=4,
         num_encoder_layers=4,
         dim_feedforward=192,
-        lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
         loss_fn=MeanSquaredError(),
         log_tensorboard=True,
         force_reset=True,

@@ -3,7 +3,7 @@ from typing import List
 import pandas as pd
 import pandas_market_calendars as mcal
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, ModelSummary
-
+import torch
 from pandas.tseries.holiday import USFederalHolidayCalendar
 
 from LossLogger import LossLogger
@@ -54,7 +54,14 @@ class SHARED_CONFIG:
     EPOCHS = 2500
     BATCH_SIZE = 512
     SHOW_WARNINGS = True
-    OPTIMIZER_KWARGS = {"lr": 1e-4}
+    OPTIMIZER_KWARGS = {"lr": 1e-3}
+    LR_SCHEDULER_KWARGS = {
+        "optimizer": torch.optim.Adam,
+        "threshold": 0.5,
+        "patience": 8,
+        "min_lr": 1e-8,
+        "verbose": True,
+    }
 
     @staticmethod
     def get_pl_trainer_kwargs(additional_callbacks: List):

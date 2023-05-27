@@ -14,23 +14,24 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Main runner")
 
 MODEL_CONFIGS = [
-    ModelConfig(ModelTypes.rnn, 1, hidden_state=170),  # 147
-    ModelConfig(ModelTypes.gru, 1, hidden_state=100),  # 154
-    ModelConfig(ModelTypes.lstm, 1, hidden_state=85),  #
-    ModelConfig(
-        ModelTypes.tft,
-        1,
-        hidden_state=30,
-    ),
-    ModelConfig(ModelTypes.transformer, 1, hidden_state=32),
-    ModelConfig(ModelTypes.rnn, 7, hidden_state=170),
-    ModelConfig(ModelTypes.gru, 7, hidden_state=100),
-    ModelConfig(ModelTypes.lstm, 7, hidden_state=85),
-    ModelConfig(
-        ModelTypes.tft,
-        7,
-        hidden_state=30,
-    ),
+    # ModelConfig(ModelTypes.rnn, 1, hidden_state=170),  # 147
+    ModelConfig(ModelTypes.gru, 1, hidden_state=100, model_name="ModelTypes.gru_out_1_rmsprop_lr_decay"),  # 154
+    # ModelConfig(ModelTypes.lstm, 1, hidden_state=85),  #
+    # ModelConfig(
+    #     ModelTypes.tft,
+    #     1,
+    #     hidden_state=40,
+    # ),
+    # ModelConfig(ModelTypes.transformer, 1, hidden_state=32),
+    # ModelConfig(ModelTypes.rnn, 7, hidden_state=170),
+    # ModelConfig(ModelTypes.gru, 7, hidden_state=100),
+    # ModelConfig(ModelTypes.lstm, 7, hidden_state=85),
+    # ModelConfig(
+    #     ModelTypes.tft,
+    #     7,
+    #     hidden_state=40,
+    # ),
+    # TO RUN
     ModelConfig(ModelTypes.transformer, 7, hidden_state=32),
 ]
 
