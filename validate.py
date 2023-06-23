@@ -74,7 +74,11 @@ def main(config=CONST.MODEL_CONFIG):
     predict = model.trainer.predict(model=model.model, dataloaders=test_dataloader)
 
     LOGGER.info("Preparing output data for conversion")
-    flatten_tensors = [torch.flatten(tensor) for tensor in predict]
+
+    if config.model_type == CONST.ModelTypes.tcn:
+        flatten_tensors = [torch.flatten(tensor[:, -config.output_len :, :]) for tensor in predict]
+    else:
+        flatten_tensors = [torch.flatten(tensor) for tensor in predict]
     flatten_tensor = torch.cat(flatten_tensors)
 
     LOGGER.info("Spliting all predicted tensor by series idx")

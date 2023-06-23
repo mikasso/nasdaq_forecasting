@@ -15,6 +15,7 @@ class ModelTypes(Enum):
     gru = "GRU"
     transformer = "Transformer"
     tft = "TFT"
+    tcn = "TCN"
 
 
 RNN_NETWORKS = [ModelTypes.rnn, ModelTypes.lstm, ModelTypes.gru]
