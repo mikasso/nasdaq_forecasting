@@ -3,14 +3,22 @@ from typing import Callable, Dict, List, Tuple
 import numpy as np
 import pandas as pd
 from pandas import DataFrame, DatetimeIndex, RangeIndex, Timestamp
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, MaxAbsScaler, RobustScaler
 import const as CONST
 from darts.dataprocessing.transformers import (
     Scaler,
 )
 from darts import TimeSeries
 from joblib import Parallel, delayed
-from smoothing import apply_differencing, inverse_differencing, inverse_smooth_seq, smooth_seq
+from smoothing import (
+    apply_differencing,
+    apply_log,
+    apply_pct_change,
+    inverse_differencing,
+    inverse_pct_change,
+    inverse_smooth_seq,
+    smooth_seq,
+)
 from utils import concatanete_seq, read_csv_ts, robust_pct
 from darts.utils.timeseries_generation import datetime_attribute_timeseries
 from darts import concatenate
@@ -21,6 +29,12 @@ from darts.dataprocessing.transformers import StaticCovariatesTransformer
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Dataset")
+
+
+class DiffType:
+    PCT = 1
+    DIFF = 2
+    NONE = 0
 
 
 class DatasetAccesor:
@@ -69,8 +83,9 @@ class DatasetTransformer:
     def __init__(
         self,
         darts_scaler: Scaler = Scaler(n_jobs=-1, verbose=True),
-        use_diff: bool = True,
+        use_diff: int = DiffType.NONE,
         use_smoothing=True,
+        use_log=False,
         verbose=True,
         alpha=0.5,
         n_jobs=-1,
@@ -84,20 +99,29 @@ class DatasetTransformer:
         self.before_smoothed = None
         self._before_diff = None
         self.n_jobs = n_jobs
+        self._use_log = use_log
 
     def transform(self, dataset: DatasetAccesor) -> DatasetAccesor:
         self._logger.info(f"Starting transforming {len(dataset.series)} series.")
         series_seq = dataset.series
         self.seq_len = len(series_seq)
+        if self._use_log == True:
+            self._logger.info(f"Applying log()")
+            series_seq = apply_log(series_seq)
+
         if self.used_smoothing:
             self._logger.info(f"Applying exponential smoothing")
             series_seq = smooth_seq(series_seq, self._alpha)
             self.before_smoothed = DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
 
-        if self.used_diff:
+        if self.used_diff == DiffType.DIFF:
             self._logger.info(f"Applying differencing")
             self._before_diff = DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
             series_seq = apply_differencing(series_seq)
+        elif self.used_diff == DiffType.PCT:
+            self._logger.info(f"Applying pct change")
+            self._before_diff = DatasetAccesor(series_seq, dataset.val_idx, dataset.test_idx)
+            series_seq = apply_pct_change(series_seq)
 
         if self.scaler != None:
             self._logger.info(f"Applying darts scaler {self.scaler.name}")
@@ -123,10 +147,14 @@ class DatasetTransformer:
             self.scaler.set_verbose(verbose)
             series_seq = self.scaler.inverse_transform(series_seq)
 
-        if self.used_diff:
+        if self.used_diff == DiffType.DIFF:
             self._logger.info(f"Inversing differencing")
             last_values = self.get_last_historical_value_seq(series_seq, self._before_diff.series)
             series_seq = inverse_differencing(last_values, series_seq, n_jobs=n_jobs)
+        elif self.used_diff == DiffType.PCT:
+            self._logger.info(f"Inversing pct change")
+            last_values = self.get_last_historical_value_seq(series_seq, self._before_diff.series)
+            series_seq = inverse_pct_change(last_values, series_seq, n_jobs=n_jobs)
 
         if self.used_smoothing:
             self._logger.info(f"Inversing smoothing")
@@ -196,7 +224,7 @@ class SeqDataset(DatasetAccesor):
         def process(ticker: str) -> DatasetAccesor:
             LOGGER.info(f"Loading {ticker} timeseries")
             df = read_csv_ts(f"{CONST.PATHS.MERGED}/{ticker}.csv")[:load_up_to][[target_feature]]
-            series = TimeSeries.from_dataframe(df).astype(np.float32)
+            series = TimeSeries.from_dataframe(df).astype(np.float64)
             if ticker in CONST.TICKERS and target_feature == CONST.FEATURES.PRICE:
                 s = pd.read_csv(f"{CONST.PATHS.MERGED}/static.csv", index_col=0)
                 series = series.with_static_covariates(s.loc[ticker])
@@ -226,7 +254,9 @@ class Datasets:
         return f"{CONST.PATHS.DATA}/preprocessed/datasets{'_sanity' if sanity_check else ''}.pkl"
 
     @staticmethod
-    def build_and_save(sanity_check=CONST.SANITY_CHECK):
+    def build_and_save(
+        sanity_check=CONST.SANITY_CHECK,
+    ):
         LOGGER.info("Building a new dataset")
         path = Datasets.get_datasets_path(sanity_check)
         datasets = Datasets.build_datasets(sanity_check)
@@ -261,23 +291,27 @@ class Datasets:
         use_scaler=CONST.USE_SCALER,
     ):
         verbose = True
-        get_scaler = lambda: Scaler(n_jobs=-1, verbose=verbose) if use_scaler else None
+        get_scaler = lambda scaler=None: Scaler(scaler=scaler, n_jobs=-1, verbose=verbose) if use_scaler else None
         # Load prices dataset from tickers
         dataset = SeqDataset.load(sanity_check, target_feature=CONST.FEATURES.PRICE)
         transformer = DatasetTransformer(
-            darts_scaler=get_scaler(), use_diff=use_diff, use_smoothing=use_smoothing, verbose=verbose
+            darts_scaler=get_scaler(MaxAbsScaler()), use_diff=DiffType.PCT, use_smoothing=use_smoothing, verbose=verbose
         )
         transformed = transformer.transform(dataset)
         # Load shares dataset from tickers
         shares_dataset = SeqDataset.load(sanity_check, target_feature=CONST.FEATURES.SHARES)
         shares_transformer = DatasetTransformer(
-            darts_scaler=get_scaler(), use_diff=use_diff, use_smoothing=use_smoothing, verbose=verbose
+            darts_scaler=get_scaler(RobustScaler()),
+            use_diff=DiffType.DIFF,
+            use_smoothing=use_smoothing,
+            verbose=verbose,
+            use_log=True,
         )
         shares_transformed = shares_transformer.transform(shares_dataset)
         # Load gold dataset
         gold_dataset = SeqDataset.load(sanity_check, target_feature=CONST.FEATURES.GOLD_PRICE, use_tickers=["gold"])
         gold_transformer = DatasetTransformer(
-            darts_scaler=get_scaler(), use_diff=use_diff, use_smoothing=use_smoothing, verbose=verbose
+            darts_scaler=get_scaler(MaxAbsScaler()), use_diff=DiffType.PCT, use_smoothing=use_smoothing, verbose=verbose
         )
         gold_transformed = gold_transformer.transform(gold_dataset)  # only one series
         # Merge all covariates
@@ -303,7 +337,7 @@ def load_datasets(
     return datasets
 
 
-def assert_error(error: List[float] | float, name: str, eps=0.00001):
+def assert_error(error: List[float] | float, name: str, eps=0.0001):
     error = error if hasattr(error, "__len__") else [error]
     LOGGER.info(f"{name} assert inversed test is equal to orignal test series")
     print(error)
@@ -367,9 +401,8 @@ if __name__ == "__main__":
     Datasets.build_and_save(CONST.SANITY_CHECK)
     ds = load_datasets(CONST.SANITY_CHECK)
 
-    if CONST.SANITY_CHECK == False:
-        test_datasets(ds)
-        test_diff(ds)
-        test_smoothing_on_series(ds.original.series[0])
-        test_smoothing(ds)
-        test_transforming(ds)
+    test_datasets(ds)
+    test_diff(ds)
+    test_smoothing_on_series(ds.original.series[0])
+    test_smoothing(ds)
+    test_transforming(ds)

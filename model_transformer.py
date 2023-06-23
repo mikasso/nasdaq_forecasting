@@ -22,7 +22,7 @@ def main(config: ModelConfig):
         pl_trainer_kwargs=CONST.SHARED_CONFIG.get_pl_trainer_kwargs([loss_logger]),
         optimizer_kwargs=CONST.SHARED_CONFIG.OPTIMIZER_KWARGS,
         dropout=CONST.SHARED_CONFIG.DROPOUT,
-        lr_scheduler_kwargs=CONST.SHARED_CONFIG.LR_SCHEDULER_KWARGS,
+        # TODO unlock lr_scheduler_kwargs=CONST.SHARED_CONFIG.LR_SCHEDULER_KWARGS,
         lr_scheduler_cls=torch.optim.lr_scheduler.ReduceLROnPlateau,
         model_name=config.model_name,
         output_chunk_length=config.output_len,

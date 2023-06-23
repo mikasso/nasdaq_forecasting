@@ -101,4 +101,4 @@ def open_charts(path):
 
 
 if __name__ == "__main__":
-    open_charts("results/ModelTypes.tft_out_1_with_statics")
+    open_charts("results/ModelTypes.gru_out_7")

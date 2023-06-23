@@ -67,6 +67,24 @@ def apply_differencing(series_seq: List[TimeSeries]):
     return Parallel(n_jobs=-1)(delayed(process)(s) for s in series_seq)
 
 
+def apply_pct_change(series_seq: List[TimeSeries]):
+    def process(s: TimeSeries):
+        df = s.pd_dataframe().pct_change()
+        df.iloc[0][0] = 0
+        return TimeSeries.from_dataframe(df)
+
+    return Parallel(n_jobs=-1)(delayed(process)(s) for s in series_seq)
+
+
+def apply_log(series_seq: List[TimeSeries]):
+    def process(s: TimeSeries):
+        df = s.pd_dataframe()
+        df[df.columns[0]] = np.log(df[df.columns[0]] + 1)
+        return TimeSeries.from_dataframe(df)
+
+    return Parallel(n_jobs=-1)(delayed(process)(s) for s in series_seq)
+
+
 def inverse_differencing(initial_values_seq: List[np.number], series_seq: List[TimeSeries], n_jobs=-1):
     def process(transformed: TimeSeries, initial_value: np.number):
         series_values = transformed.values(copy=False)
@@ -74,6 +92,16 @@ def inverse_differencing(initial_values_seq: List[np.number], series_seq: List[T
         for idx in range(1, len(series_values)):
             series_values[idx, 0] = series_values[idx, 0] + series_values[idx - 1, 0]
         return transformed
+
+    return Parallel(n_jobs=n_jobs)(
+        delayed(process)(transformed, last_value) for (transformed, last_value) in zip(series_seq, initial_values_seq)
+    )
+
+
+def inverse_pct_change(initial_values_seq: List[np.number], series_seq: List[TimeSeries], n_jobs=-1):
+    def process(transformed: TimeSeries, initial_value: np.number):
+        df_series = transformed.pd_series().add(1, fill_value=0).cumprod() * initial_value
+        return TimeSeries.from_times_and_values(transformed.time_index, df_series.values, freq=transformed.freq)
 
     return Parallel(n_jobs=n_jobs)(
         delayed(process)(transformed, last_value) for (transformed, last_value) in zip(series_seq, initial_values_seq)
