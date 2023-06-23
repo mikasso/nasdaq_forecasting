@@ -1,6 +1,7 @@
 import enum
 import logging
 import model_rnn
+import model_tcn
 import model_tft
 import model_transformer
 import _predict
@@ -15,7 +16,11 @@ LOGGER = logging.getLogger(name="Main runner")
 
 MODEL_CONFIGS = [
     ModelConfig(ModelTypes.rnn, 1, hidden_state=170),  # 147
+<<<<<<< HEAD
     ModelConfig(ModelTypes.gru, 1, hidden_state=100),
+=======
+    ModelConfig(ModelTypes.gru, 1, hidden_state=100),  # 154
+>>>>>>> master
     ModelConfig(ModelTypes.lstm, 1, hidden_state=85),  #
     ModelConfig(
         ModelTypes.tft,
@@ -32,6 +37,8 @@ MODEL_CONFIGS = [
         hidden_state=40,
     ),
     ModelConfig(ModelTypes.transformer, 7, hidden_state=32),
+    ModelConfig(ModelTypes.tcn, 1),
+    ModelConfig(ModelTypes.tcn, 7),
 ]
 
 
@@ -40,6 +47,8 @@ def dispatch_model_training(config: ModelConfig):
         model_rnn.main(config)
     elif config.model_type == ModelTypes.tft:
         model_tft.main(config)
+    elif config.model_type == ModelTypes.tcn:
+        model_tcn.main(config)
     elif config.model_type == ModelTypes.transformer:
         model_transformer.main(config)
     else:
