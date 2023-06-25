@@ -37,7 +37,7 @@ def train_model(model: BlockRNNModel):
         val_series=ds.transformed.val,
         val_past_covariates=ds.covariates.val,
         verbose=True,
-        num_loader_workers=1 if CONST.SANITY_CHECK else 4,
+        num_loader_workers=1,
     )
     LOGGER.info(f"Finished training of {model.model_name}")
     return model

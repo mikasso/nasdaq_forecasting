@@ -30,7 +30,7 @@ def main(config: ModelConfig):
         model_name=config.model_name,
         output_chunk_length=config.output_len,
         hidden_dim=config.hidden_state,
-        n_rnn_layers=3,
+        n_rnn_layers=2,
         loss_fn=MeanSquaredError(),
         log_tensorboard=True,
         force_reset=True,

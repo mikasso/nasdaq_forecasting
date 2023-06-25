@@ -45,6 +45,10 @@ class DatasetAccesor:
         self._val_idx = val_idx
         self._test_idx = test_idx
 
+    def astype(self, dtype):
+        self._series = [x.astype(dtype) for x in self.series]
+        return self
+
     @property
     def val_idx(self) -> int:
         return self._val_idx
@@ -244,10 +248,11 @@ class Datasets:
         transformed: DatasetAccesor,
         covariates: DatasetAccesor,
     ) -> None:
-        self.original = original
+        target_type = np.float32
+        self.original = original.astype(target_type)
         self.transformer = trasformer
-        self.transformed = transformed
-        self.covariates = covariates
+        self.transformed = transformed.astype(target_type)
+        self.covariates = covariates.astype(target_type)
 
     @staticmethod
     def get_datasets_path(sanity_check) -> str:
@@ -351,11 +356,11 @@ def test_transforming(ds: Datasets):
     inversed_test = ds.transformer.inverse(transformed.test)
 
     error = mape(inversed_test, ds.original.test)
-    assert_error(error, "transforming")
     inversed_test[0].plot()
     ds.original.test[0].plot()
-
+    plt.title(f"error = {np.mean(error)}")
     plt.show()
+    assert_error(error, "transforming")
 
 
 def test_datasets(ds: Datasets):

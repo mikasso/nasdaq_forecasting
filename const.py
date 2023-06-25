@@ -50,10 +50,10 @@ class FEATURES:
 
 
 class SHARED_CONFIG:
-    INPUT_LEN = 256
-    DROPOUT = 0.2
+    INPUT_LEN = 128
+    DROPOUT = 0.1
     EPOCHS = 2500
-    BATCH_SIZE = 512
+    BATCH_SIZE = 256
     SHOW_WARNINGS = True
     OPTIMIZER_KWARGS = {"lr": 1e-3}
     LR_SCHEDULER_KWARGS = {
@@ -70,7 +70,7 @@ class SHARED_CONFIG:
             "callbacks": [
                 EarlyStopping(
                     monitor="val_loss",
-                    patience=20,
+                    patience=17,
                     min_delta=0.0001,
                     mode="min",
                 ),
@@ -99,7 +99,7 @@ BHOURS_US = set_calendar()
 READ_COLUMNS = ["timestamp", "price", "shares", "canceled"]
 START_DATE = "20080101"
 END_DATE = "20230310"
-TICKERS = ["AEM", "AUY", "GFI", "HMY", "IAG", "KGC", "NEM", "PAAS"]
+TICKERS = ["NEM"]
 
 TRAIN_VAL_SPLIT_START = 0.8
 TRAINVAL_TEST_SPLIT_START = 0.9

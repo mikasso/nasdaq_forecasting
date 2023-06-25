@@ -41,11 +41,11 @@ if __name__ == "__main__":
         plt.savefig(f"{CONST.PATHS.RESULTS}/general/results_{out_len}.svg", format="svg", dpi=300, bbox_inches="tight")
         plt.show()
 
-    process_result_map(2, 1)
+    process_result_map(1, 1)
     process_result_map(3, 7)
+    process_result_map(10, 35)
 
-
-    def average_error(config, window =100):
-        df = pd.read_csv(config.result_path+"/mape.csv",index_col=0)
+    def average_error(config, window=100):
+        df = pd.read_csv(config.result_path + "/mape.csv", index_col=0)
         df.mean(axis="columns").rolling(window).mean().plot()
         plt.show()

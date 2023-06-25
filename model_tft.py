@@ -51,7 +51,7 @@ def main(config: ModelConfig):
         model_name=config.model_name,
         output_chunk_length=config.output_len,
         hidden_size=config.hidden_state,
-        lstm_layers=3,
+        lstm_layers=2,
         loss_fn=MeanSquaredError(),
         log_tensorboard=True,
         force_reset=True,

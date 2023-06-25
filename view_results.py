@@ -43,7 +43,8 @@ def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG, show=True):
     LOGGER.info("Rendering charts")
     for prediction, original, ticker in zip(predictions, ds.original.series, ds.original.used_tickers):
         display_predictions(prediction, original, ticker, save=True, path=config.result_path)
-    plt.show(block=show)
+        plt.show(block=show)
+        plt.cla()
 
 
 def display_predictions(
@@ -73,7 +74,6 @@ def display_predictions(
     if save:
         fig1.savefig(f"{path}/plot_{ticker}.svg", format="svg")
         joblib.dump(fig1, f"{path}/plot_{ticker}.pkl")
-    plt.show(block=False)
 
 
 def calculate_mapes(predicted_timeseries: List[TimeSeries], original: TimeSeries) -> np.ndarray:
@@ -100,5 +100,10 @@ def open_charts(path):
     plt.show()
 
 
+def open_single(path):
+    joblib.load(path)
+    plt.show()
+
+
 if __name__ == "__main__":
-    open_charts("results/ModelTypes.gru_out_7")
+    open_single("results/ModelTypes.tcn_out_35/plot_NEM.pkl")

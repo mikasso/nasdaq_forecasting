@@ -15,30 +15,39 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Main runner")
 
 MODEL_CONFIGS = [
-    ModelConfig(ModelTypes.rnn, 1, hidden_state=170),  # 147
-<<<<<<< HEAD
-    ModelConfig(ModelTypes.gru, 1, hidden_state=100),
-=======
-    ModelConfig(ModelTypes.gru, 1, hidden_state=100),  # 154
->>>>>>> master
-    ModelConfig(ModelTypes.lstm, 1, hidden_state=85),  #
-    ModelConfig(
-        ModelTypes.tft,
-        1,
-        hidden_state=40,
-    ),
-    ModelConfig(ModelTypes.transformer, 1, hidden_state=32),
-    ModelConfig(ModelTypes.rnn, 7, hidden_state=170),
-    ModelConfig(ModelTypes.gru, 7, hidden_state=100),
-    ModelConfig(ModelTypes.lstm, 7, hidden_state=85),
-    ModelConfig(
-        ModelTypes.tft,
-        7,
-        hidden_state=40,
-    ),
-    ModelConfig(ModelTypes.transformer, 7, hidden_state=32),
-    ModelConfig(ModelTypes.tcn, 1),
-    ModelConfig(ModelTypes.tcn, 7),
+    # One hour horizon
+    # ModelConfig(ModelTypes.rnn, 1, hidden_state=80),  # 20.2k
+    # ModelConfig(ModelTypes.gru, 1, hidden_state=45),  # 19.9k
+    # ModelConfig(ModelTypes.lstm, 1, hidden_state=38),  # 19.2k
+    # ModelConfig(
+    #     ModelTypes.tft,
+    #     1,
+    #     hidden_state=14,
+    # ),  # 19.8k
+    # ModelConfig(ModelTypes.transformer, 1, hidden_state=8),  # 19.4k
+    # ModelConfig(ModelTypes.tcn, 1),  # 20.2k
+    # # One day horizon
+    # ModelConfig(ModelTypes.rnn, 7, hidden_state=80),  # 20.2k
+    # ModelConfig(ModelTypes.gru, 7, hidden_state=45),  # 19.9k
+    # ModelConfig(ModelTypes.lstm, 7, hidden_state=38),  # 19.2k
+    # ModelConfig(
+    #     ModelTypes.tft,
+    #     7,
+    #     hidden_state=14,
+    # ),  # 19.8k
+    # ModelConfig(ModelTypes.transformer, 7, hidden_state=8),  # 19.4k
+    # ModelConfig(ModelTypes.tcn, 7),  # 20.2k
+    # # One week horizon
+    # ModelConfig(ModelTypes.rnn, 35, hidden_state=80),  # 20.2k
+    # ModelConfig(ModelTypes.gru, 35, hidden_state=45),  # 19.9k
+    # ModelConfig(ModelTypes.lstm, 35, hidden_state=38),  # 19.2k
+    # ModelConfig(
+    #     ModelTypes.tft,
+    #     35,
+    #     hidden_state=14,
+    # ),  # 19.8k
+    # ModelConfig(ModelTypes.transformer, 35, hidden_state=8),  # 19.4k
+    ModelConfig(ModelTypes.tcn, 35),  # 20.2k
 ]
 
 
@@ -63,5 +72,5 @@ if __name__ == "__main__":
         # create_folder(config.result_path, delete_if_exists=True)
         # dispatch_model_training(config)
         # validate.main(config)
-        view_results.main(config, show=True)
+        view_results.main(config, show=False)
         LOGGER.info(f"Finished running model: {config.model_name}")
