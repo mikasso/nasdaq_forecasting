@@ -15,11 +15,11 @@ if __name__ == "__main__":
     stocks_dict = {}
 
     def add_result(config: CONST.ModelConfig):
-        df = pd.read_csv(f"{config.result_path}/described_mape.csv", header=0, usecols=range(1, 9))
+        df = pd.read_csv(f"{config.result_path}/described_mape.csv", header=0, usecols=range(1, len(CONST.TICKERS) + 1))
         dict[extract_name(config)] = df.mean(axis=1)
 
     def add_stock_result(config: CONST.ModelConfig):
-        df = pd.read_csv(f"{config.result_path}/mape.csv", header=0, usecols=range(1, 9))
+        df = pd.read_csv(f"{config.result_path}/mape.csv", header=0, usecols=range(1, len(CONST.TICKERS) + 1))
         stocks_dict[extract_name(config)] = df.mean()
 
     add_result(BASELINE_CONFIG)
