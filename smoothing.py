@@ -69,7 +69,7 @@ def apply_differencing(series_seq: List[TimeSeries]):
 
 def apply_pct_change(series_seq: List[TimeSeries]):
     def process(s: TimeSeries):
-        df = s.pd_dataframe().pct_change()
+        df = s.pd_dataframe().pct_change() * 100
         df.iloc[0][0] = 0
         return TimeSeries.from_dataframe(df)
 
@@ -100,7 +100,7 @@ def inverse_differencing(initial_values_seq: List[np.number], series_seq: List[T
 
 def inverse_pct_change(initial_values_seq: List[np.number], series_seq: List[TimeSeries], n_jobs=-1):
     def process(transformed: TimeSeries, initial_value: np.number):
-        df_series = transformed.pd_series().add(1, fill_value=0).cumprod() * initial_value
+        df_series = (transformed.pd_series() / 100).add(1, fill_value=0).cumprod() * initial_value
         return TimeSeries.from_times_and_values(transformed.time_index, df_series.values, freq=transformed.freq)
 
     return Parallel(n_jobs=n_jobs)(

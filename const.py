@@ -35,7 +35,7 @@ class ModelConfig:
 
 class PATHS:
     DATA = "data"
-    MERGED = "data/merged"
+    MERGED = "data/daily"  # "data/merged"
     PARQUET = "data/parquet"
     META = "data/meta"
     CSV = "data/csv"
@@ -43,10 +43,10 @@ class PATHS:
 
 
 class FEATURES:
-    PRICE = "price"
-    SHARES = "shares"
-    TIMESTAMP = "timestamp"
-    GOLD_PRICE = "gold_price"
+    PRICE = "adjclose"
+    SHARES = "volume"
+    TIMESTAMP = "date"
+    GOLD_PRICE = "adjclose"
 
 
 class SHARED_CONFIG:
@@ -70,7 +70,7 @@ class SHARED_CONFIG:
             "callbacks": [
                 EarlyStopping(
                     monitor="val_loss",
-                    patience=17,
+                    patience=(17 if not SANITY_CHECK else 100),
                     min_delta=0.0001,
                     mode="min",
                 ),
@@ -82,7 +82,7 @@ class SHARED_CONFIG:
         }
 
 
-FREQ = "1H"
+FREQ = "B"
 calendar = USFederalHolidayCalendar()
 
 
@@ -90,7 +90,7 @@ def set_calendar():
     nyse = mcal.get_calendar("NYSE")
     holidays = nyse.holidays()
     nyse_holidays = holidays.holidays
-    nyse_us = pd.offsets.CustomBusinessHour(start="9:00", end="17:00", calendar=nyse, holidays=nyse_holidays)
+    nyse_us = pd.offsets.CustomBusinessDay(calendar=nyse, holidays=nyse_holidays)
     return nyse_us
 
 
@@ -99,7 +99,7 @@ BHOURS_US = set_calendar()
 READ_COLUMNS = ["timestamp", "price", "shares", "canceled"]
 START_DATE = "20080101"
 END_DATE = "20230310"
-TICKERS = ["NEM"]
+TICKERS = ["AEM", "GFI", "HMY", "SSRM", "KGC", "NEM", "PAAS"]
 
 TRAIN_VAL_SPLIT_START = 0.8
 TRAINVAL_TEST_SPLIT_START = 0.9

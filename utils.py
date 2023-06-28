@@ -38,8 +38,8 @@ def read_csv_ts(csv_path: str, time_key=FEATURES.TIMESTAMP) -> pd.DataFrame:
     df = pd.read_csv(csv_path)
     df[time_key] = pd.DatetimeIndex(df[time_key])
     df.set_index(time_key, inplace=True)
-    df = df[pd.Timestamp(CONST.START_DATE) : pd.Timestamp(CONST.END_DATE)]
-    return df.asfreq(CONST.BHOURS_US)
+    df = df[pd.Timestamp(CONST.START_DATE) : pd.Timestamp(CONST.END_DATE)].dropna()
+    return df.asfreq(CONST.BHOURS_US, method="bfill")
 
 
 def robust_pct(series: pd.Series) -> pd.DataFrame:

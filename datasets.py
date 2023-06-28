@@ -208,26 +208,30 @@ class SeqDataset(DatasetAccesor):
         return len(self.series)
 
     @staticmethod
-    def load(sanity_check=False, target_feature=CONST.FEATURES.PRICE, use_tickers=CONST.TICKERS):
+    def load(
+        sanity_check=False, target_feature=CONST.FEATURES.PRICE, use_tickers=CONST.TICKERS, rename_to_ticker=False
+    ):
         if sanity_check == True:
             LOGGER.info("Sanity check dataset")
-            length = (
-                int(CONST.SHARED_CONFIG.INPUT_LEN / (CONST.TRAINVAL_TEST_SPLIT_START - CONST.TRAIN_VAL_SPLIT_START))
-                + 14
-            )
+            length = 5 * CONST.SHARED_CONFIG.INPUT_LEN
             used_tickers = [use_tickers[0]]
+            val_idx = 256
+            test_idx = 448
         else:
             LOGGER.info(f"Loading full data - assuming length {use_tickers[0]}.csv")
             length = len(read_csv_ts(f"{CONST.PATHS.MERGED}/{use_tickers[0]}.csv"))
             used_tickers = use_tickers
+            val_idx = int(length * CONST.TRAIN_VAL_SPLIT_START)
+            test_idx = int(length * CONST.TRAINVAL_TEST_SPLIT_START)
         LOGGER.info(f"Dataset for following feature { target_feature } for tickers { ' '.join(used_tickers) }")
-        val_idx = int(length * CONST.TRAIN_VAL_SPLIT_START)
-        test_idx = int(length * CONST.TRAINVAL_TEST_SPLIT_START)
         load_up_to = length
 
         def process(ticker: str) -> DatasetAccesor:
             LOGGER.info(f"Loading {ticker} timeseries")
             df = read_csv_ts(f"{CONST.PATHS.MERGED}/{ticker}.csv")[:load_up_to][[target_feature]]
+            if rename_to_ticker:
+                df.rename(inplace=True, columns={target_feature: ticker})
+            assert len(df) == length
             series = TimeSeries.from_dataframe(df).astype(np.float64)
             if ticker in CONST.TICKERS and target_feature == CONST.FEATURES.PRICE:
                 s = pd.read_csv(f"{CONST.PATHS.MERGED}/static.csv", index_col=0)
@@ -273,16 +277,20 @@ class Datasets:
         """Returns future covariates build from date attributes cyclic - month, weekday and hours scaled by MinMaxScaler"""
 
         def process(series):
-            month_series = datetime_attribute_timeseries(
-                series.time_index, attribute="month", dtype=np.float32, cyclic=True
+            arr = []
+
+            arr.append(
+                datetime_attribute_timeseries(series.time_index, attribute="month", dtype=np.float32, cyclic=True)
             )
-            weekday_series = datetime_attribute_timeseries(
-                series.time_index, attribute="weekday", dtype=np.float32, cyclic=True
+            arr.append(
+                datetime_attribute_timeseries(series.time_index, attribute="weekday", dtype=np.float32, cyclic=True)
             )
-            hour_series = datetime_attribute_timeseries(series.time_index, attribute="hour", dtype=np.float32)
-            # The series have the same freq so it's allowed to use the same scaler for train/val/test
-            hour_series = Scaler().fit_transform(hour_series)
-            date_cov = concatenate([month_series, weekday_series, hour_series], axis=1)
+            if CONST.FREQ == "1H":
+                hour_series = datetime_attribute_timeseries(series.time_index, attribute="hour", dtype=np.float32)
+                hour_series = Scaler().fit_transform(hour_series)
+                arr.append(hour_series)
+
+            date_cov = concatenate(arr, axis=1)
             return date_cov
 
         all_date_covs = Parallel(n_jobs=-1)(delayed(process)(series) for series in dataset.series)
@@ -300,7 +308,7 @@ class Datasets:
         # Load prices dataset from tickers
         dataset = SeqDataset.load(sanity_check, target_feature=CONST.FEATURES.PRICE)
         transformer = DatasetTransformer(
-            darts_scaler=get_scaler(MaxAbsScaler()), use_diff=DiffType.PCT, use_smoothing=use_smoothing, verbose=verbose
+            darts_scaler=get_scaler(MinMaxScaler()), use_diff=DiffType.PCT, use_smoothing=use_smoothing, verbose=verbose
         )
         transformed = transformer.transform(dataset)
         # Load shares dataset from tickers
@@ -314,16 +322,24 @@ class Datasets:
         )
         shares_transformed = shares_transformer.transform(shares_dataset)
         # Load gold dataset
-        gold_dataset = SeqDataset.load(sanity_check, target_feature=CONST.FEATURES.GOLD_PRICE, use_tickers=["gold"])
-        gold_transformer = DatasetTransformer(
-            darts_scaler=get_scaler(MaxAbsScaler()), use_diff=DiffType.PCT, use_smoothing=use_smoothing, verbose=verbose
+        cov_dataset = SeqDataset.load(
+            sanity_check,
+            target_feature=CONST.FEATURES.PRICE,
+            use_tickers=["INFLATION", "^GSPC", "ES=F", "GC=F", "GOLD", "SI=F", "SILVER", "XLF"],
+            rename_to_ticker=True,
         )
-        gold_transformed = gold_transformer.transform(gold_dataset)  # only one series
+        cov_transformer = DatasetTransformer(
+            darts_scaler=get_scaler(MinMaxScaler()),
+            use_diff=DiffType.DIFF,
+            use_smoothing=use_smoothing,
+            verbose=verbose,
+        )
+        cov_transformed = cov_transformer.transform(cov_dataset)
         # Merge all covariates
-        dates_covariates = Datasets.get_datecovs(dataset)
+        dates = Datasets.get_datecovs(dataset)
         covariates = [
-            concatenate([shares, gold_transformed.series[0], dates], axis=1)
-            for dates, shares in zip(dates_covariates.series, shares_transformed.series)
+            concatenate([shares, dates] + cov_transformed.series, axis=1)
+            for dates, shares in zip(dates.series, shares_transformed.series)
         ]
         cov_dataset = DatasetAccesor(covariates, dataset.val_idx, dataset.test_idx)
 
@@ -393,10 +409,9 @@ def test_smoothing(ds: Datasets):
 
 def test_smoothing_on_series(series: TimeSeries):
     smoothed = smooth_seq([series])[0]
-    original = series[-1000:]
-    test = smoothed[-1000:]
-    last_val = smoothed[-1001].first_value()
-    print(last_val)
+    original = series[-100:]
+    test = smoothed[-100:]
+    last_val = smoothed[-101].first_value()
     inversed = inverse_smooth_seq([last_val], [test])
     error = mape(inversed, original)
     assert_error(error, "smoothing on series")

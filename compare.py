@@ -41,8 +41,8 @@ if __name__ == "__main__":
         plt.savefig(f"{CONST.PATHS.RESULTS}/general/results_{out_len}.svg", format="svg", dpi=300, bbox_inches="tight")
         plt.show()
 
-    process_result_map(1, 1)
-    process_result_map(3, 7)
+    process_result_map(3, 1)
+    process_result_map(6, 7)
     process_result_map(10, 35)
 
     def average_error(config, window=100):
