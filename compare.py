@@ -42,8 +42,8 @@ if __name__ == "__main__":
         plt.show()
 
     process_result_map(3, 1)
-    process_result_map(6, 7)
-    process_result_map(10, 35)
+    process_result_map(6, 8)
+    process_result_map(10, 40)
 
     def average_error(config, window=100):
         df = pd.read_csv(config.result_path + "/mape.csv", index_col=0)
