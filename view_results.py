@@ -106,4 +106,4 @@ def open_single(path):
 
 
 if __name__ == "__main__":
-    open_single("results/ModelTypes.lstm_out_7/plot_NEM.pkl")
+    open_single("results/ModelTypes.lstm_out_40/plot_NEM.pkl")

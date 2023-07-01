@@ -35,7 +35,7 @@ class ModelConfig:
 
 class PATHS:
     DATA = "data"
-    MERGED = "data/daily"  # "data/merged"
+    MERGED = "data/merged"
     PARQUET = "data/parquet"
     META = "data/meta"
     CSV = "data/csv"
@@ -43,10 +43,10 @@ class PATHS:
 
 
 class FEATURES:
-    PRICE = "adjclose"
-    SHARES = "volume"
-    TIMESTAMP = "date"
-    GOLD_PRICE = "adjclose"
+    PRICE = "price"
+    SHARES = "shares"
+    TIMESTAMP = "timestamp"
+    GOLD_PRICE = "gold_price"
 
 
 class SHARED_CONFIG:
@@ -82,7 +82,7 @@ class SHARED_CONFIG:
         }
 
 
-FREQ = "B"
+FREQ = "1H"
 calendar = USFederalHolidayCalendar()
 
 
@@ -90,7 +90,7 @@ def set_calendar():
     nyse = mcal.get_calendar("NYSE")
     holidays = nyse.holidays()
     nyse_holidays = holidays.holidays
-    nyse_us = pd.offsets.CustomBusinessDay(calendar=nyse, holidays=nyse_holidays)
+    nyse_us = pd.offsets.CustomBusinessHour(start="9:00", end="17:00", calendar=nyse, holidays=nyse_holidays)
     return nyse_us
 
 
@@ -99,7 +99,7 @@ BHOURS_US = set_calendar()
 READ_COLUMNS = ["timestamp", "price", "shares", "canceled"]
 START_DATE = "20080101"
 END_DATE = "20230310"
-TICKERS = ["AEM", "GFI", "HMY", "SSRM", "KGC", "NEM", "PAAS"]
+TICKERS = ["AEM", "AU", "GFI", "HMY", "KGC", "NEM", "PAAS"]
 
 TRAIN_VAL_SPLIT_START = 0.8
 TRAINVAL_TEST_SPLIT_START = 0.9
@@ -112,6 +112,3 @@ USE_SCALER = True
 MODEL_CONFIG = ModelConfig(
     ModelTypes.lstm, 1, hidden_state=32
 )  #  ModelConfig(ModelTypes.gru, 1, "TestModel", hidden_state=110)
-
-
-saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]

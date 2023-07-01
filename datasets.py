@@ -324,8 +324,8 @@ class Datasets:
         # Load gold dataset
         cov_dataset = SeqDataset.load(
             sanity_check,
-            target_feature=CONST.FEATURES.PRICE,
-            use_tickers=["INFLATION", "^GSPC", "ES=F", "GC=F", "GOLD", "SI=F", "SILVER", "XLF"],
+            target_feature=CONST.FEATURES.GOLD_PRICE,
+            use_tickers=["gold"],
             rename_to_ticker=True,
         )
         cov_transformer = DatasetTransformer(

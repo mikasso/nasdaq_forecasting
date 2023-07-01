@@ -94,7 +94,7 @@ if __name__ == "__main__":
     df[CONST.FEATURES.GOLD_PRICE] = df[CONST.FEATURES.GOLD_PRICE].fillna(method="ffill")
     df.to_csv(f"{CONST.PATHS.MERGED}/gold.csv")
     # stocks to parse
-    for symbol in CONST.TICKERS:
+    for symbol in []:
         date_dirs = get_date_dirs(symbol)
         csv_path = merge_parquets_to_csv(symbol, date_dirs)
         df = read_csv_ts(csv_path)
