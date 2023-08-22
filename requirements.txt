@@ -5,7 +5,7 @@ seaborn==0.12.2
 joblib==1.2.0
 scikit-learn==1.2.1
 fastparquet==2023.2.0
-darts==0.23.1
+darts==0.25.0
 pandas_market_calendars
 dask>2023.3.2
 distributed>2023.3.2

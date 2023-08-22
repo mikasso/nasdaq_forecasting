@@ -99,7 +99,7 @@ BHOURS_US = set_calendar()
 READ_COLUMNS = ["timestamp", "price", "shares", "canceled"]
 START_DATE = "20080101"
 END_DATE = "20230310"
-TICKERS = ["AEM", "GFI", "HMY", "SSRM", "KGC", "NEM", "PAAS"]
+TICKERS = ["AEM", "AU", "GFI", "HMY", "KGC", "NEM", "PAAS"]
 
 TRAIN_VAL_SPLIT_START = 0.8
 TRAINVAL_TEST_SPLIT_START = 0.9

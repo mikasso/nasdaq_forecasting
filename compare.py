@@ -22,7 +22,7 @@ if __name__ == "__main__":
         df = pd.read_csv(f"{config.result_path}/mape.csv", header=0, usecols=range(1, len(CONST.TICKERS) + 1))
         stocks_dict[extract_name(config)] = df.mean()
 
-    add_result(BASELINE_CONFIG)
+    # add_result(BASELINE_CONFIG)
     for config in MODEL_CONFIGS:
         add_result(config)
         add_stock_result(config)
@@ -38,12 +38,12 @@ if __name__ == "__main__":
         df = stocks_comaprison.filter(like=f"{out_len}", axis=1)
         df["μ spółki"] = df.mean(axis="columns")
         sns.heatmap(df.T, annot=True, vmax=max, cmap="Blues", fmt=".2f")
-        plt.savefig(f"{CONST.PATHS.RESULTS}/general/results_{out_len}.svg", format="svg", dpi=300, bbox_inches="tight")
+        plt.savefig(f"{CONST.PATHS.RESULTS}/general/results_{out_len}.png", format="png", dpi=300, bbox_inches="tight")
         plt.show()
 
     process_result_map(3, 1)
-    process_result_map(6, 7)
-    process_result_map(10, 35)
+    process_result_map(6, 8)
+    process_result_map(10, 40)
 
     def average_error(config, window=100):
         df = pd.read_csv(config.result_path + "/mape.csv", index_col=0)

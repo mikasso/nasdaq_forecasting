@@ -308,7 +308,10 @@ class Datasets:
         # Load prices dataset from tickers
         dataset = SeqDataset.load(sanity_check, target_feature=CONST.FEATURES.PRICE)
         transformer = DatasetTransformer(
-            darts_scaler=get_scaler(MinMaxScaler()), use_diff=DiffType.PCT, use_smoothing=use_smoothing, verbose=verbose
+            darts_scaler=get_scaler(MinMaxScaler()),
+            use_diff=DiffType.DIFF,
+            use_smoothing=use_smoothing,
+            verbose=verbose,
         )
         transformed = transformer.transform(dataset)
         # Load shares dataset from tickers

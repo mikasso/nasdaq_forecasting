@@ -30,7 +30,6 @@ def main(config: ModelConfig):
         weight_norm=True,
         kernel_size=7,
         num_filters=21,
-        num_layers=4,
         loss_fn=MeanSquaredError(),
         log_tensorboard=True,
         force_reset=True,

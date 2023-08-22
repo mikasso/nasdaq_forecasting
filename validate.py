@@ -43,7 +43,7 @@ def main(config=CONST.MODEL_CONFIG):
     logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.WARNING)
 
     model = TorchForecastingModel.load_from_checkpoint(model_name=config.model_name, best=True)
-    model.model.set_predict_parameters(1, 1, 1, CONST.SHARED_CONFIG.BATCH_SIZE, 4)
+    model.model.set_predict_parameters(1, 1, 1, CONST.SHARED_CONFIG.BATCH_SIZE, 4, False)
     model.trainer = model._init_trainer(model.trainer_params)
 
     LOGGER.info("Preparing test set")

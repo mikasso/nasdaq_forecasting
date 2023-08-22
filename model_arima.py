@@ -3,7 +3,7 @@ import torch
 from torchmetrics import MeanSquaredError
 from LossLogger import LossLogger
 from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
-from darts.models import BlockRNNModel, ARIMA
+from darts.models import BlockRNNModel, ARIMA, AutoARIMA
 from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 import const as CONST
 from train import train_model
@@ -16,8 +16,8 @@ LOGGER = logging.getLogger(name="rnn_models")
 
 
 def main(config: ModelConfig):
-    model = ARIMA()
-    trained_model = train_model(model)
+    model = AutoARIMA()
+    model.fit()
     # visualize_history(config, loss_logger.train_loss, loss_logger.val_loss)
     return trained_model
 
