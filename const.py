@@ -7,6 +7,54 @@ import torch
 from pandas.tseries.holiday import USFederalHolidayCalendar
 
 from LossLogger import LossLogger
+import os
+
+
+INTERVAL = "H" if os.getenv("INTERVAL") == None else os.environ["INTERVAL"]
+
+assert INTERVAL == "D" or INTERVAL == "H"
+
+FREQ = "B" if INTERVAL == "D" else "1H"
+
+
+class PATHS:
+    DATA = "data"
+    MERGED = "data/daily" if INTERVAL == "D" else "data/merged"
+    PARQUET = "data/parquet"
+    META = "data/meta"
+    CSV = "data/csv"
+    RESULTS = "results"
+
+
+class FEATURES:
+    PRICE = "adjclose" if INTERVAL == "D" else "price"
+    SHARES = "volume" if INTERVAL == "D" else "shares"
+    TIMESTAMP = "date" if INTERVAL == "D" else "timestamp"
+
+
+def set_calendar():
+    nyse = mcal.get_calendar("NYSE")
+    holidays = nyse.holidays()
+    nyse_holidays = holidays.holidays
+    if INTERVAL == "D":
+        nyse_us = pd.offsets.CustomBusinessDay(calendar=nyse, holidays=nyse_holidays)
+    else:
+        nyse_us = pd.offsets.CustomBusinessHour(start="9:00", end="17:00", calendar=nyse, holidays=nyse_holidays)
+    return nyse_us
+
+
+BHOURS_US = set_calendar()
+
+START_DATE = "20080101"
+END_DATE = "20230310"
+TICKERS = ["AEM", "AU", "GFI", "HMY", "KGC", "NEM", "PAAS"]
+
+TRAIN_VAL_SPLIT_START = 0.8
+TRAINVAL_TEST_SPLIT_START = 0.9
+SANITY_CHECK = False
+USE_DIFF = True
+USE_SMOOTHING = True
+USE_SCALER = True
 
 
 class ModelTypes(Enum):
@@ -31,22 +79,6 @@ class ModelConfig:
     @property
     def result_path(self) -> str:
         return f"{PATHS.RESULTS}/{self.model_name}"
-
-
-class PATHS:
-    DATA = "data"
-    MERGED = "data/daily"  # "data/merged"
-    PARQUET = "data/parquet"
-    META = "data/meta"
-    CSV = "data/csv"
-    RESULTS = "results"
-
-
-class FEATURES:
-    PRICE = "adjclose"
-    SHARES = "volume"
-    TIMESTAMP = "date"
-    GOLD_PRICE = "adjclose"
 
 
 class SHARED_CONFIG:
@@ -82,36 +114,5 @@ class SHARED_CONFIG:
         }
 
 
-FREQ = "B"
-calendar = USFederalHolidayCalendar()
-
-
-def set_calendar():
-    nyse = mcal.get_calendar("NYSE")
-    holidays = nyse.holidays()
-    nyse_holidays = holidays.holidays
-    nyse_us = pd.offsets.CustomBusinessDay(calendar=nyse, holidays=nyse_holidays)
-    return nyse_us
-
-
-BHOURS_US = set_calendar()
-
-READ_COLUMNS = ["timestamp", "price", "shares", "canceled"]
-START_DATE = "20080101"
-END_DATE = "20230310"
-TICKERS = ["AEM", "AU", "GFI", "HMY", "KGC", "NEM", "PAAS"]
-
-TRAIN_VAL_SPLIT_START = 0.8
-TRAINVAL_TEST_SPLIT_START = 0.9
-SANITY_CHECK = False
-USE_DIFF = True
-USE_SMOOTHING = True
-USE_SCALER = True
-
-
-MODEL_CONFIG = ModelConfig(
-    ModelTypes.lstm, 1, hidden_state=32
-)  #  ModelConfig(ModelTypes.gru, 1, "TestModel", hidden_state=110)
-
-
-saved_model_names = ["BlockRNNModel_LSTM_O5", "BlockRNNModel_LSTM_O1", "BlockRNNModel_LSTM_O5_2"]
+MODEL_CONFIG = ModelConfig(ModelTypes.lstm, 1, hidden_state=32)
+""" Default Model config """

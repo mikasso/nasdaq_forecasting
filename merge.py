@@ -30,7 +30,7 @@ def preprocessing(df: pd.DataFrame) -> pd.DataFrame:
     df = df.drop(labels=["canceled"], axis="columns")
     df[FEATURES.TIMESTAMP] = pd.to_datetime(df[FEATURES.TIMESTAMP])
     df = df.set_index(FEATURES.TIMESTAMP)
-    df = weight_average_sampling(df, CONST.FREQ)
+    df = weight_average_sampling(df, "1H" if CONST.INTERVAL == "H" else "B")
     return df
 
 
@@ -90,8 +90,8 @@ def setup_frequency(df: pd.DataFrame) -> pd.DataFrame:
 
 if __name__ == "__main__":
     # gold parsing
-    df = read_csv_ts(f"{CONST.PATHS.DATA}/gold/XAUUSD.csv")[["Close"]].rename({"Close": "gold_price"}, axis=1)
-    df[CONST.FEATURES.GOLD_PRICE] = df[CONST.FEATURES.GOLD_PRICE].fillna(method="ffill")
+    df = read_csv_ts(f"{CONST.PATHS.DATA}/gold/XAUUSD.csv")[["Close"]].rename({"Close": "price"}, axis=1)
+    df[CONST.FEATURES.PRICE] = df[CONST.FEATURES.PRICE].fillna(method="ffill")
     df.to_csv(f"{CONST.PATHS.MERGED}/gold.csv")
     # stocks to parse
     for symbol in CONST.TICKERS:

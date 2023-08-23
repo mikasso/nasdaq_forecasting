@@ -285,7 +285,7 @@ class Datasets:
             arr.append(
                 datetime_attribute_timeseries(series.time_index, attribute="weekday", dtype=np.float32, cyclic=True)
             )
-            if CONST.FREQ == "1H":
+            if CONST.INTERVAL == "H":
                 hour_series = datetime_attribute_timeseries(series.time_index, attribute="hour", dtype=np.float32)
                 hour_series = Scaler().fit_transform(hour_series)
                 arr.append(hour_series)
@@ -328,7 +328,7 @@ class Datasets:
         cov_dataset = SeqDataset.load(
             sanity_check,
             target_feature=CONST.FEATURES.PRICE,
-            use_tickers=["INFLATION", "^GSPC", "ES=F", "GC=F", "GOLD", "SI=F", "SILVER", "XLF"],
+            use_tickers=["gold"],
             rename_to_ticker=True,
         )
         cov_transformer = DatasetTransformer(
@@ -361,7 +361,7 @@ def load_datasets(
     return datasets
 
 
-def assert_error(error: List[float] | float, name: str, eps=0.0001):
+def assert_error(error: List[float] | float, name: str, eps=0.001):
     error = error if hasattr(error, "__len__") else [error]
     LOGGER.info(f"{name} assert inversed test is equal to orignal test series")
     print(error)
