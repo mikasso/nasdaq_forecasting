@@ -31,19 +31,22 @@ if __name__ == "__main__":
     pd.DataFrame(dict).rename(map_names).to_csv(f"{CONST.PATHS.RESULTS}/general/comaprision.csv")
 
     stocks_comaprison = pd.DataFrame(stocks_dict)
-    stocks_comaprison.loc["μ modelu"] = stocks_comaprison.mean(axis="rows")
+    stocks_comaprison.loc["średnia"] = stocks_comaprison.mean(axis="rows")
     stocks_comaprison.to_csv(f"{CONST.PATHS.RESULTS}/general/stocks_comaprision.csv")
 
-    def process_result_map(max, out_len):
+    def process_result_map(out_len):
         df = stocks_comaprison.filter(like=f"{out_len}", axis=1)
-        df["μ spółki"] = df.mean(axis="columns")
-        sns.heatmap(df.T, annot=True, vmax=max, cmap="Blues", fmt=".2f")
+        df["średnia"] = df.mean(axis="columns")
+        sns.heatmap(df.T, annot=True, vmax=df.max().max(), vmin=df.min().min(), cmap="Blues", fmt=".3f")
+        plt.tick_params(
+            axis="both", which="major", labelsize=10, labelbottom=False, bottom=False, top=False, labeltop=True
+        )
         plt.savefig(f"{CONST.PATHS.RESULTS}/general/results_{out_len}.png", format="png", dpi=300, bbox_inches="tight")
         plt.show()
 
-    process_result_map(3, 1)
-    process_result_map(6, 8)
-    process_result_map(10, 40)
+    process_result_map(1)
+    process_result_map(8)
+    process_result_map(40)
 
     def average_error(config, window=100):
         df = pd.read_csv(config.result_path + "/mape.csv", index_col=0)
