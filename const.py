@@ -23,7 +23,7 @@ class PATHS:
     PARQUET = "data/parquet"
     META = "data/meta"
     CSV = "data/csv"
-    RESULTS = "results"
+    RESULTS = "results/daily" if INTERVAL == "D" else "data/hourly"
 
 
 class FEATURES:
