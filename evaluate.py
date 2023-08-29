@@ -54,8 +54,12 @@ def plot_losses():
         ax.plot(value[1])
         k = key.split(" ")
         min_val_losses[k[0]][k[1]] = min(value[1])
-        ax.set_yticks(np.arange(0, 0.005, 0.001))
-        ax.set_ylim(0, 0.005)
+        if CONST.INTERVAL == "H":
+            ax.set_yticks(np.arange(0, 0.005, 0.001))
+            ax.set_ylim(0, 0.005)
+        else:
+            ax.set_yticks(np.arange(0, 0.03, 0.005))
+            ax.set_ylim(0, 0.025)
         ax.set_title(key)
 
     labels = ["Zbiór uczący", "Zbiór walidacyjny"]
