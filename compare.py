@@ -1,6 +1,5 @@
 import pandas as pd
-from model_baseline import BASELINE_CONFIG
-from run import MODEL_CONFIGS
+from model_configs import MODEL_CONFIGS, ModelConfig, ModelTypes
 import const as CONST
 import seaborn as sns
 import matplotlib.pyplot as plt
@@ -20,11 +19,11 @@ def main():
     dict = {}
     stocks_dict = {}
 
-    def add_result(config: CONST.ModelConfig):
+    def add_result(config: ModelConfig):
         df = pd.read_csv(f"{config.result_path}/described_mape.csv", header=0, usecols=range(1, len(CONST.TICKERS) + 1))
         dict[extract_name(config)] = df.mean(axis=1)
 
-    def add_stock_result(config: CONST.ModelConfig):
+    def add_stock_result(config: ModelConfig):
         df = pd.read_csv(f"{config.result_path}/mape.csv", header=0, usecols=range(1, len(CONST.TICKERS) + 1))
         stocks_dict[extract_name(config)] = df.mean()
 

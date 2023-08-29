@@ -1,20 +1,16 @@
-from enum import Enum
 from typing import List
 import pandas as pd
 import pandas_market_calendars as mcal
-from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor, ModelSummary
+from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 import torch
-from pandas.tseries.holiday import USFederalHolidayCalendar
-
-from LossLogger import LossLogger
 import os
 
 
-# INTERVAL = "H" if os.getenv("INTERVAL") == None else os.environ["INTERVAL"]
-INTERVAL = "H"
+INTERVAL = "H" if os.getenv("INTERVAL") == None else os.environ["INTERVAL"]
 assert INTERVAL == "D" or INTERVAL == "H"
 
 FREQ = "B" if INTERVAL == "D" else "1H"
+WORK_DIR = "darts_logs/daily" if INTERVAL == "D" else "darts_logs/hourly"
 
 
 class PATHS:
@@ -58,34 +54,10 @@ USE_SCALER = True
 EXTRA_SERIES = ["INFLATION", "^GSPC", "ES=F", "GC=F", "GOLD", "SI=F", "SILVER", "XLF"] if INTERVAL == "D" else ["gold"]
 
 
-class ModelTypes(Enum):
-    rnn = "RNN"
-    lstm = "LSTM"
-    gru = "GRU"
-    transformer = "Transformer"
-    tft = "TFT"
-    tcn = "TCN"
-
-
-RNN_NETWORKS = [ModelTypes.rnn, ModelTypes.lstm, ModelTypes.gru]
-
-
-class ModelConfig:
-    def __init__(self, model_type: ModelTypes, output_len: int, model_name=None, hidden_state=256) -> None:
-        self.model_name = f"{model_type}_out_{output_len}" if model_name == None else model_name
-        self.model_type = model_type
-        self.output_len = output_len
-        self.hidden_state = hidden_state
-
-    @property
-    def result_path(self) -> str:
-        return f"{PATHS.RESULTS}/{self.model_name}"
-
-
 class SHARED_CONFIG:
     INPUT_LEN = 128
     DROPOUT = 0.1
-    EPOCHS = 2500
+    EPOCHS = 2
     BATCH_SIZE = 256
     SHOW_WARNINGS = True
     OPTIMIZER_KWARGS = {"lr": 1e-3}
@@ -113,7 +85,3 @@ class SHARED_CONFIG:
             "accelerator": "gpu",
             "devices": [0],
         }
-
-
-MODEL_CONFIG = ModelConfig(ModelTypes.lstm, 1, hidden_state=32)
-""" Default Model config """

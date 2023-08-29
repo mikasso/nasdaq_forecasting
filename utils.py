@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 import torch
 import const as CONST
-from const import FEATURES, ModelConfig
+from const import FEATURES
 from darts import TimeSeries
+from model_configs import ModelConfig
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="utils")

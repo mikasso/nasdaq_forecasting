@@ -14,13 +14,13 @@ import matplotlib
 # matplotlib.rcParams["figure.figsize"] = (20, 10)
 warnings.simplefilter(action="ignore", category=FutureWarning)
 import darts
-from validate import load_model
+from test import load_model
 from view_results import load_results
 from darts.datasets import AirPassengersDataset
 from darts.explainability.tft_explainer import TFTExplainer
 from darts.models.forecasting.torch_forecasting_model import TorchForecastingModel
 from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
-from const import ModelConfig, ModelTypes
+from model_configs import ModelConfig, ModelTypes, MODEL_CONFIGS
 from darts.models import TFTModel
 import numpy as np
 from darts import concatenate

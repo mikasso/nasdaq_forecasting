@@ -1,30 +1,15 @@
 import logging
 import types
-from typing import List
 import joblib
-import numpy as np
-from pandas import DataFrame
-from pytorch_lightning import Trainer
 import torch
 from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
 import const as CONST
-import matplotlib.pyplot as plt
-from darts.metrics import mape
-from darts.models import RNNModel
 import pandas as pd
 from darts import TimeSeries
 import logging
-from darts.models import BlockRNNModel
 from darts.models.forecasting.torch_forecasting_model import TorchForecastingModel
-from darts.utils.data.inference_dataset import (
-    PastCovariatesInferenceDataset,
-)
-from darts import concatenate
-from torch.utils.data import Dataset, DataLoader
 import warnings
-
-from utils import create_folder
-
+from model_configs import ModelTypes, ModelConfig, DEFAULT_MODEL
 
 warnings.simplefilter(action="ignore", category=FutureWarning)
 logging.basicConfig(level=logging.INFO)
@@ -32,8 +17,9 @@ LOGGER = logging.getLogger(name="predict")
 
 
 def load_model(model_name, **kwargs):
-    work_dir = "darts_logs/daily" if CONST.INTERVAL == "D" else "darts_logs/hourly"
-    return TorchForecastingModel.load_from_checkpoint(model_name=model_name, work_dir=work_dir, best=True, **kwargs)
+    return TorchForecastingModel.load_from_checkpoint(
+        model_name=model_name, work_dir=CONST.WORK_DIR, best=True, **kwargs
+    )
 
 
 def _predict_step(self, val_batch, batch_idx) -> torch.Tensor:
@@ -42,7 +28,7 @@ def _predict_step(self, val_batch, batch_idx) -> torch.Tensor:
     return output
 
 
-def main(config=CONST.MODEL_CONFIG):
+def main(config=DEFAULT_MODEL):
     torch.set_float32_matmul_precision("medium")
     logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.WARNING)
     logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.WARNING)
@@ -76,13 +62,13 @@ def main(config=CONST.MODEL_CONFIG):
 
     LOGGER.info("Running model for prediction")
     model.model.predict_step = types.MethodType(_predict_step, model.model)
-    if config.model_type == CONST.ModelTypes.tft:
+    if config.model_type == ModelTypes.tft:
         model.model.full_attention = True
     predict = model.trainer.predict(model=model.model, dataloaders=test_dataloader)
 
     LOGGER.info("Preparing output data for conversion")
 
-    if config.model_type == CONST.ModelTypes.tcn:
+    if config.model_type == ModelTypes.tcn:
         flatten_tensors = [torch.flatten(tensor[:, -config.output_len :, :]) for tensor in predict]
     else:
         flatten_tensors = [torch.flatten(tensor) for tensor in predict]
@@ -125,6 +111,6 @@ def main(config=CONST.MODEL_CONFIG):
 
 
 if __name__ == "__main__":
-    main(CONST.ModelConfig(CONST.ModelTypes.tft, 1, hidden_state=32))
-    main(CONST.ModelConfig(CONST.ModelTypes.tft, 8, hidden_state=32))
-    main(CONST.ModelConfig(CONST.ModelTypes.tft, 40, hidden_state=32))
+    main(ModelConfig(ModelTypes.tft, 1, hidden_state=32))
+    main(ModelConfig(ModelTypes.tft, 8, hidden_state=32))
+    main(ModelConfig(ModelTypes.tft, 40, hidden_state=32))

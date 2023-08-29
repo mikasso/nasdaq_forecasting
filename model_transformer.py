@@ -8,14 +8,13 @@ from pytorch_lightning.callbacks import EarlyStopping, LearningRateMonitor
 import const as CONST
 from train import train_model
 from utils import assert_pytorch_is_using_gpu, visualize_history
-from const import ModelConfig, ModelTypes
-from darts.models.forecasting.torch_forecasting_model import TorchForecastingModel
-from torch import optim
+from model_configs import ModelConfig, DEFAULT_MODEL
 
 
 def main(config: ModelConfig):
     loss_logger = LossLogger()
     model = TransformerModel(
+        work_dir=CONST.WORK_DIR,
         batch_size=CONST.SHARED_CONFIG.BATCH_SIZE,
         n_epochs=CONST.SHARED_CONFIG.EPOCHS,
         input_chunk_length=CONST.SHARED_CONFIG.INPUT_LEN,
@@ -43,4 +42,4 @@ def main(config: ModelConfig):
 
 
 if __name__ == "__main__":
-    model = main(CONST.MODEL_CONFIG)
+    model = main(DEFAULT_MODEL)

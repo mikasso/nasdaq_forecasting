@@ -16,6 +16,8 @@ import const as CONST
 import warnings
 import os
 
+from model_configs import DEFAULT_MODEL, ModelConfig
+
 warnings.simplefilter(action="ignore", category=FutureWarning)
 
 from darts import concatenate
@@ -24,7 +26,7 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="view_results")
 
 
-def main(config: CONST.ModelConfig = CONST.MODEL_CONFIG, show=True):
+def main(config: ModelConfig = DEFAULT_MODEL, show=True):
     ds = load_datasets()
     predictions = load_results(config)
     for prediction, ticker in zip(predictions, ds.original.used_tickers):
@@ -91,7 +93,7 @@ def calculate_mapes(predicted_timeseries: List[TimeSeries], original: TimeSeries
     return np.array(mapes)
 
 
-def load_results(config: CONST.ModelConfig) -> List[List[TimeSeries]]:
+def load_results(config: ModelConfig) -> List[List[TimeSeries]]:
     return joblib.load(f"{config.result_path}/{config.model_name}.pkl")
 
 
@@ -108,7 +110,5 @@ def open_single(path):
 
 
 if __name__ == "__main__":
-    # main(CONST.ModelConfig(CONST.ModelTypes.gru, 8), show=False)
-    # main(CONST.ModelConfig(CONST.ModelTypes.tft, 40), show=False)
     open_single("results/hourly/ModelTypes.gru_out_8/plot_NEM.pkl")
     open_single("results/hourly/ModelTypes.tft_out_40/plot_NEM.pkl")
