@@ -31,6 +31,11 @@ logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="predict")
 
 
+def load_model(model_name, **kwargs):
+    work_dir = "darts_logs/daily" if CONST.INTERVAL == "D" else "darts_logs/hourly"
+    return TorchForecastingModel.load_from_checkpoint(model_name=model_name, work_dir=work_dir, best=True, **kwargs)
+
+
 def _predict_step(self, val_batch, batch_idx) -> torch.Tensor:
     """performs predict step hacky"""
     output = self._produce_train_output(val_batch[:-1])  # why [:-1]
@@ -42,7 +47,7 @@ def main(config=CONST.MODEL_CONFIG):
     logging.getLogger("pytorch_lightning.utilities.rank_zero").setLevel(logging.WARNING)
     logging.getLogger("pytorch_lightning.accelerators.cuda").setLevel(logging.WARNING)
 
-    model = TorchForecastingModel.load_from_checkpoint(model_name=config.model_name, best=True)
+    model = load_model(model_name=config.model_name)
     model.model.set_predict_parameters(1, 1, 1, CONST.SHARED_CONFIG.BATCH_SIZE, 4, False)
     model.trainer = model._init_trainer(model.trainer_params)
 
@@ -71,6 +76,8 @@ def main(config=CONST.MODEL_CONFIG):
 
     LOGGER.info("Running model for prediction")
     model.model.predict_step = types.MethodType(_predict_step, model.model)
+    if config.model_type == CONST.ModelTypes.tft:
+        model.model.full_attention = True
     predict = model.trainer.predict(model=model.model, dataloaders=test_dataloader)
 
     LOGGER.info("Preparing output data for conversion")
@@ -118,4 +125,6 @@ def main(config=CONST.MODEL_CONFIG):
 
 
 if __name__ == "__main__":
-    main()
+    main(CONST.ModelConfig(CONST.ModelTypes.tft, 1, hidden_state=32))
+    main(CONST.ModelConfig(CONST.ModelTypes.tft, 8, hidden_state=32))
+    main(CONST.ModelConfig(CONST.ModelTypes.tft, 40, hidden_state=32))

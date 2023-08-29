@@ -86,7 +86,7 @@ class DatasetAccesor:
 class DatasetTransformer:
     def __init__(
         self,
-        darts_scaler: Scaler = Scaler(n_jobs=-1, verbose=True),
+        darts_scaler: Scaler,
         use_diff: int = DiffType.NONE,
         use_smoothing=True,
         use_log=False,
@@ -260,7 +260,7 @@ class Datasets:
 
     @staticmethod
     def get_datasets_path(sanity_check) -> str:
-        return f"{CONST.PATHS.DATA}/preprocessed/datasets{'_sanity' if sanity_check else ''}.pkl"
+        return f"{CONST.PATHS.DATA}/preprocessed/datasets{'_daily' if CONST.INTERVAL == 'D' else '_hourly'}{'_sanity' if sanity_check else ''}.pkl"
 
     @staticmethod
     def build_and_save(
@@ -268,7 +268,7 @@ class Datasets:
     ):
         LOGGER.info("Building a new dataset")
         path = Datasets.get_datasets_path(sanity_check)
-        datasets = Datasets.build_datasets(sanity_check)
+        datasets = Datasets.build_datasets(sanity_check, use_diff=DiffType.DIFF)
         LOGGER.info(f"Saving a new dataset to {path}")
         dump(datasets, path)
 
@@ -309,7 +309,7 @@ class Datasets:
         dataset = SeqDataset.load(sanity_check, target_feature=CONST.FEATURES.PRICE)
         transformer = DatasetTransformer(
             darts_scaler=get_scaler(MinMaxScaler()),
-            use_diff=DiffType.DIFF,
+            use_diff=use_diff,
             use_smoothing=use_smoothing,
             verbose=verbose,
         )
@@ -328,7 +328,7 @@ class Datasets:
         cov_dataset = SeqDataset.load(
             sanity_check,
             target_feature=CONST.FEATURES.PRICE,
-            use_tickers=["gold"],
+            use_tickers=CONST.EXTRA_SERIES,
             rename_to_ticker=True,
         )
         cov_transformer = DatasetTransformer(

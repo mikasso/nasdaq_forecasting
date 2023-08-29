@@ -10,8 +10,8 @@ from LossLogger import LossLogger
 import os
 
 
-INTERVAL = "H" if os.getenv("INTERVAL") == None else os.environ["INTERVAL"]
-
+# INTERVAL = "H" if os.getenv("INTERVAL") == None else os.environ["INTERVAL"]
+INTERVAL = "H"
 assert INTERVAL == "D" or INTERVAL == "H"
 
 FREQ = "B" if INTERVAL == "D" else "1H"
@@ -23,7 +23,7 @@ class PATHS:
     PARQUET = "data/parquet"
     META = "data/meta"
     CSV = "data/csv"
-    RESULTS = "results/daily" if INTERVAL == "D" else "data/hourly"
+    RESULTS = "results/daily" if INTERVAL == "D" else "results/hourly"
 
 
 class FEATURES:
@@ -55,6 +55,7 @@ SANITY_CHECK = False
 USE_DIFF = True
 USE_SMOOTHING = True
 USE_SCALER = True
+EXTRA_SERIES = ["INFLATION", "^GSPC", "ES=F", "GC=F", "GOLD", "SI=F", "SILVER", "XLF"] if INTERVAL == "D" else ["gold"]
 
 
 class ModelTypes(Enum):

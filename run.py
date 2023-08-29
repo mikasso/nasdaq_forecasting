@@ -4,50 +4,48 @@ import model_rnn
 import model_tcn
 import model_tft
 import model_transformer
-import _predict
 from const import ModelConfig, RNN_NETWORKS, ModelTypes
 from utils import create_folder
 import validate
 import view_results
 from datasets import SeqDataset, Datasets, DatasetAccesor, DatasetTransformer, load_datasets
+import compare
+import evaluate
 
 logging.basicConfig(level=logging.INFO)
 LOGGER = logging.getLogger(name="Main runner")
 
 MODEL_CONFIGS = [
-    # # One hour horizon
-    ModelConfig(ModelTypes.rnn, 1, hidden_state=80),  # 20.2k
-    ModelConfig(ModelTypes.gru, 1, hidden_state=45),  # 19.9k
-    ModelConfig(ModelTypes.lstm, 1, hidden_state=38),  # 19.2k
+    ModelConfig(ModelTypes.rnn, 1, hidden_state=80),
+    ModelConfig(ModelTypes.gru, 1, hidden_state=45),
+    ModelConfig(ModelTypes.lstm, 1, hidden_state=38),
     ModelConfig(
         ModelTypes.tft,
         1,
         hidden_state=14,
-    ),  # 19.8k
-    ModelConfig(ModelTypes.transformer, 1, hidden_state=8),  # 19.4k
-    ModelConfig(ModelTypes.tcn, 1),  # 20.2k
-    # # One day horizon
-    ModelConfig(ModelTypes.rnn, 8, hidden_state=80),  # 20.2k
-    ModelConfig(ModelTypes.gru, 8, hidden_state=45),  # 19.9k
-    ModelConfig(ModelTypes.lstm, 8, hidden_state=38),  # 25.3k
+    ),
+    ModelConfig(ModelTypes.transformer, 1, hidden_state=8),
+    ModelConfig(ModelTypes.tcn, 1),
+    ModelConfig(ModelTypes.rnn, 8, hidden_state=80),
+    ModelConfig(ModelTypes.gru, 8, hidden_state=45),
+    ModelConfig(ModelTypes.lstm, 8, hidden_state=38),
     ModelConfig(
         ModelTypes.tft,
         8,
         hidden_state=14,
-    ),  # 19.8k
-    ModelConfig(ModelTypes.transformer, 8, hidden_state=8),  # 19.4k
-    ModelConfig(ModelTypes.tcn, 8),  # 20.2k
-    # One week horizon
-    ModelConfig(ModelTypes.rnn, 40, hidden_state=80),  # 20.2k
-    ModelConfig(ModelTypes.gru, 40, hidden_state=45),  # 19.9k from here
-    ModelConfig(ModelTypes.lstm, 40, hidden_state=38),  # 19.2k
+    ),
+    ModelConfig(ModelTypes.transformer, 8, hidden_state=8),
+    ModelConfig(ModelTypes.tcn, 8),
+    ModelConfig(ModelTypes.rnn, 40, hidden_state=80),
+    ModelConfig(ModelTypes.gru, 40, hidden_state=45),
+    ModelConfig(ModelTypes.lstm, 40, hidden_state=38),
     ModelConfig(
         ModelTypes.tft,
         40,
         hidden_state=14,
-    ),  # 19.8k
-    ModelConfig(ModelTypes.transformer, 40, hidden_state=8),  # 19.4k
-    ModelConfig(ModelTypes.tcn, 40),  # 20.2k
+    ),
+    ModelConfig(ModelTypes.transformer, 40, hidden_state=8),
+    ModelConfig(ModelTypes.tcn, 40),
 ]
 
 
@@ -73,4 +71,9 @@ if __name__ == "__main__":
         dispatch_model_training(config)
         validate.main(config)
         view_results.main(config, show=False)
-        LOGGER.info(f"Finished running model: {config.model_name}")
+        LOGGER.info(f"Evaluating model: {config.model_name}")
+
+    LOGGER.info("Creating comparision heatmap")
+    compare.main()
+    LOGGER.info("Creating accuracy and weights table for TFT models")
+    evaluate.main()

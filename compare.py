@@ -10,7 +10,13 @@ def extract_name(config):
     return f"{config.model_type.value} {config.output_len}"
 
 
-if __name__ == "__main__":
+def average_error(config, window=100):
+    df = pd.read_csv(config.result_path + "/mape.csv", index_col=0)
+    df.mean(axis="columns").rolling(window).mean().plot()
+    plt.show()
+
+
+def main():
     dict = {}
     stocks_dict = {}
 
@@ -22,7 +28,6 @@ if __name__ == "__main__":
         df = pd.read_csv(f"{config.result_path}/mape.csv", header=0, usecols=range(1, len(CONST.TICKERS) + 1))
         stocks_dict[extract_name(config)] = df.mean()
 
-    # add_result(BASELINE_CONFIG)
     for config in MODEL_CONFIGS:
         add_result(config)
         add_stock_result(config)
@@ -48,7 +53,6 @@ if __name__ == "__main__":
     process_result_map(8)
     process_result_map(40)
 
-    def average_error(config, window=100):
-        df = pd.read_csv(config.result_path + "/mape.csv", index_col=0)
-        df.mean(axis="columns").rolling(window).mean().plot()
-        plt.show()
+
+if __name__ == "__main__":
+    main()

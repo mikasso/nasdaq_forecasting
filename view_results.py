@@ -1,3 +1,5 @@
+""" Calculates mapes and draws plots of predictions """
+
 import logging
 from typing import List
 
@@ -52,11 +54,11 @@ def display_predictions(
 ):
     """Display predictions for single original timeseries"""
     plt.figure(ticker)
-    plt.plot(range(len(original)), original.values(), color="black", label="original")
+    plt.plot(range(len(original)), original.values(), color="black", label=ticker)
 
     if len(predicted_timeseries[0]) == 1:
         single = concatenate(predicted_timeseries, 0)
-        plt.plot(range(len(original) - len(single), len(original)), single.values(), color="orange", label="predicted")
+        plt.plot(range(len(original) - len(single), len(original)), single.values(), color="orange", label="predykcja")
     else:
         colors = ["blue", "green", "red", "pink", "orange", "brown", "gray"]
         for idx, predicted in enumerate(predicted_timeseries):
@@ -67,8 +69,8 @@ def display_predictions(
             plt.plot(x, y, color=colors[idx % len(colors)])
 
     plt.title(ticker)
-    plt.xlabel("Timestep")
-    plt.ylabel("Price [$]")
+    plt.xlabel("Krok czasowy")
+    plt.ylabel("Cena [$]")
     plt.legend(loc="upper left")
     fig1 = plt.gcf()
     if save:
@@ -106,4 +108,7 @@ def open_single(path):
 
 
 if __name__ == "__main__":
-    open_single("results/ModelTypes.tft_out_1/plot_AEM.pkl")
+    # main(CONST.ModelConfig(CONST.ModelTypes.gru, 8), show=False)
+    # main(CONST.ModelConfig(CONST.ModelTypes.tft, 40), show=False)
+    open_single("results/hourly/ModelTypes.gru_out_8/plot_NEM.pkl")
+    open_single("results/hourly/ModelTypes.tft_out_40/plot_NEM.pkl")
